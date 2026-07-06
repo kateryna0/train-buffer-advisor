@@ -13,7 +13,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 7 | Sample data layer | Done |
 | 8 | Streamlit UI skeleton | Done |
 | 9 | Advice logging | Done |
-| 10 | Weather signal (P1) | Not started |
+| 10 | Weather signal (P1) | Done |
 | 11 | Construction/disruption signal (P1) | Not started |
 | 12 | End-to-end backend tests | Not started |
 | 13 | Documentation update | Not started |
@@ -31,3 +31,4 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 7: `data/sample_station_stats.csv` populated with 5 sample stations; `load_station_stats`/`get_station_stats` implemented in `src/data_loader.py`; tests added; committed.
 - Phase 8: Streamlit UI built in `app.py` (thin wrapper over `src/*`); manually verified locally (known station, unknown station no-data, airport modifier + warning, deadline calc, transfer warning); committed.
 - Phase 9: `log_advice` implemented in `src/logging_utils.py` (no personal fields), wired into `app.py` with privacy note; tests added; committed.
+- Phase 10: `apply_weather_modifier` added to `src/risk_engine.py` (strong wind/heat/snow-ice, capped at +15 min), wired into `calculate_buffer` and `app.py` as optional checkboxes; tests added; committed.

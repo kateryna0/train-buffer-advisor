@@ -34,6 +34,10 @@ with st.form("trip_form"):
     planned_arrival_time = st.time_input("Planned arrival time", value=time(9, 40))
     arrival_deadline = st.time_input("Arrival deadline", value=time(10, 0))
     trip_type = st.selectbox("Trip type", sorted(ALLOWED_TRIP_TYPES))
+    st.write("Weather conditions (optional)")
+    strong_wind = st.checkbox("Strong wind?")
+    heat = st.checkbox("Heat?")
+    snow_ice = st.checkbox("Snow or ice?")
     submitted = st.form_submit_button("Get advice")
 
 if submitted:
@@ -58,7 +62,9 @@ if submitted:
                 "Navigator before departure and plan conservatively."
             )
         else:
-            result = calculate_buffer(trip_input, stats)
+            result = calculate_buffer(
+                trip_input, stats, strong_wind=strong_wind, heat=heat, snow_ice=snow_ice
+            )
             result.latest_safe_planned_arrival = calculate_latest_safe_arrival(
                 arrival_deadline, result.recommended_buffer_minutes
             )

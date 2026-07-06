@@ -28,6 +28,14 @@ TRANSFER_WARNING = (
     "only as a rough warning."
 )
 
+WEATHER_MODIFIER_MINUTES = {
+    "strong_wind": 5,
+    "heat": 5,
+    "snow_ice": 10,
+}
+
+MAX_WEATHER_MODIFIER_MINUTES = 15
+
 
 def calculate_confidence(sample_size: int) -> str:
     if sample_size < 20:
@@ -72,7 +80,34 @@ def apply_trip_type_modifier(
     return base_buffer_minutes + modifier, warnings
 
 
-def calculate_buffer(trip_input: TripInput, station_stats: StationStats) -> BufferRecommendation:
+def apply_weather_modifier(
+    strong_wind: bool = False, heat: bool = False, snow_ice: bool = False
+) -> tuple[int, list[str]]:
+    reasons: list[str] = []
+    minutes = 0
+
+    if strong_wind:
+        minutes += WEATHER_MODIFIER_MINUTES["strong_wind"]
+        reasons.append("Strong wind may affect this trip.")
+    if heat:
+        minutes += WEATHER_MODIFIER_MINUTES["heat"]
+        reasons.append("Heat may affect this trip.")
+    if snow_ice:
+        minutes += WEATHER_MODIFIER_MINUTES["snow_ice"]
+        reasons.append("Snow or ice may affect this trip.")
+
+    minutes = min(minutes, MAX_WEATHER_MODIFIER_MINUTES)
+
+    return minutes, reasons
+
+
+def calculate_buffer(
+    trip_input: TripInput,
+    station_stats: StationStats,
+    strong_wind: bool = False,
+    heat: bool = False,
+    snow_ice: bool = False,
+) -> BufferRecommendation:
     confidence_level = calculate_confidence(station_stats.sample_size)
 
     if confidence_level == "no_data":
@@ -96,6 +131,8 @@ def calculate_buffer(trip_input: TripInput, station_stats: StationStats) -> Buff
     recommended_buffer_minutes, trip_type_warnings = apply_trip_type_modifier(
         base_buffer_minutes, trip_input.trip_type
     )
+    weather_minutes, weather_reasons = apply_weather_modifier(strong_wind, heat, snow_ice)
+    recommended_buffer_minutes += weather_minutes
 
     reasons = [
         f"Historical late rate at {station_stats.station_name} is "
@@ -106,6 +143,7 @@ def calculate_buffer(trip_input: TripInput, station_stats: StationStats) -> Buff
             f"Cancellation rate at {station_stats.station_name} is "
             f"{station_stats.cancellation_rate:.0%}, increasing risk."
         )
+    reasons.extend(weather_reasons)
 
     return BufferRecommendation(
         risk_level=risk_level,

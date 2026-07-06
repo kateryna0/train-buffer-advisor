@@ -3,6 +3,7 @@ from datetime import time
 from src.models import StationStats, TripInput
 from src.risk_engine import (
     apply_trip_type_modifier,
+    apply_weather_modifier,
     calculate_base_buffer,
     calculate_buffer,
     calculate_confidence,
@@ -173,3 +174,49 @@ def test_calculate_buffer_applies_airport_modifier():
     assert result.risk_level == "High"
     assert result.recommended_buffer_minutes == 55
     assert any("security" in w for w in result.warnings)
+
+
+# --- Phase 10 — weather signal modifiers ---
+
+def test_strong_wind_adds_5_minutes_and_reason():
+    minutes, reasons = apply_weather_modifier(strong_wind=True)
+    assert minutes == 5
+    assert any("wind" in r for r in reasons)
+
+
+def test_heat_adds_5_minutes_and_reason():
+    minutes, reasons = apply_weather_modifier(heat=True)
+    assert minutes == 5
+    assert any("Heat" in r for r in reasons)
+
+
+def test_snow_adds_10_minutes_and_reason():
+    minutes, reasons = apply_weather_modifier(snow_ice=True)
+    assert minutes == 10
+    assert any("Snow" in r for r in reasons)
+
+
+def test_multiple_weather_flags_are_capped_at_15():
+    minutes, reasons = apply_weather_modifier(strong_wind=True, heat=True, snow_ice=True)
+    assert minutes == 15
+    assert len(reasons) == 3
+
+
+def test_no_weather_flags_keep_buffer_unchanged():
+    minutes, reasons = apply_weather_modifier()
+    assert minutes == 0
+    assert reasons == []
+
+
+def test_calculate_buffer_applies_weather_modifier():
+    stats = StationStats(
+        station_name="Berlin Hbf",
+        sample_size=300,
+        late_rate=0.10,
+        cancellation_rate=0.02,
+        avg_delay_minutes=5,
+        p80_delay_minutes=10,
+    )
+    result = calculate_buffer(_trip_input(), stats, snow_ice=True)
+    assert result.recommended_buffer_minutes == 20
+    assert any("Snow" in r for r in result.reasons)
