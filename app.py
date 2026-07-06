@@ -38,6 +38,9 @@ with st.form("trip_form"):
     strong_wind = st.checkbox("Strong wind?")
     heat = st.checkbox("Heat?")
     snow_ice = st.checkbox("Snow or ice?")
+    construction = st.selectbox(
+        "Known construction/disruption on route?", ["no", "yes", "unknown"]
+    )
     submitted = st.form_submit_button("Get advice")
 
 if submitted:
@@ -63,7 +66,12 @@ if submitted:
             )
         else:
             result = calculate_buffer(
-                trip_input, stats, strong_wind=strong_wind, heat=heat, snow_ice=snow_ice
+                trip_input,
+                stats,
+                strong_wind=strong_wind,
+                heat=heat,
+                snow_ice=snow_ice,
+                construction=construction,
             )
             result.latest_safe_planned_arrival = calculate_latest_safe_arrival(
                 arrival_deadline, result.recommended_buffer_minutes

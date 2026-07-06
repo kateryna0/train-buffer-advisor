@@ -36,6 +36,12 @@ WEATHER_MODIFIER_MINUTES = {
 
 MAX_WEATHER_MODIFIER_MINUTES = 15
 
+CONSTRUCTION_MODIFIER_MINUTES = 10
+
+CONSTRUCTION_UNKNOWN_LIMITATION = (
+    "Construction or disruption status for this route is unknown; plan conservatively."
+)
+
 
 def calculate_confidence(sample_size: int) -> str:
     if sample_size < 20:
@@ -101,12 +107,27 @@ def apply_weather_modifier(
     return minutes, reasons
 
 
+def apply_construction_modifier(construction: str = "no") -> tuple[int, list[str], list[str]]:
+    reasons: list[str] = []
+    warnings: list[str] = []
+    minutes = 0
+
+    if construction == "yes":
+        minutes = CONSTRUCTION_MODIFIER_MINUTES
+        reasons.append("Known construction or disruption on this route may cause delays.")
+    elif construction == "unknown":
+        warnings.append(CONSTRUCTION_UNKNOWN_LIMITATION)
+
+    return minutes, reasons, warnings
+
+
 def calculate_buffer(
     trip_input: TripInput,
     station_stats: StationStats,
     strong_wind: bool = False,
     heat: bool = False,
     snow_ice: bool = False,
+    construction: str = "no",
 ) -> BufferRecommendation:
     confidence_level = calculate_confidence(station_stats.sample_size)
 
@@ -132,7 +153,10 @@ def calculate_buffer(
         base_buffer_minutes, trip_input.trip_type
     )
     weather_minutes, weather_reasons = apply_weather_modifier(strong_wind, heat, snow_ice)
-    recommended_buffer_minutes += weather_minutes
+    construction_minutes, construction_reasons, construction_warnings = (
+        apply_construction_modifier(construction)
+    )
+    recommended_buffer_minutes += weather_minutes + construction_minutes
 
     reasons = [
         f"Historical late rate at {station_stats.station_name} is "
@@ -144,6 +168,7 @@ def calculate_buffer(
             f"{station_stats.cancellation_rate:.0%}, increasing risk."
         )
     reasons.extend(weather_reasons)
+    reasons.extend(construction_reasons)
 
     return BufferRecommendation(
         risk_level=risk_level,
@@ -152,6 +177,6 @@ def calculate_buffer(
         is_planned_arrival_safe=None,
         confidence_level=confidence_level,
         reasons=reasons,
-        warnings=trip_type_warnings,
+        warnings=trip_type_warnings + construction_warnings,
         data_sources=[station_stats.station_name],
     )

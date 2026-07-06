@@ -2,6 +2,7 @@ from datetime import time
 
 from src.models import StationStats, TripInput
 from src.risk_engine import (
+    apply_construction_modifier,
     apply_trip_type_modifier,
     apply_weather_modifier,
     calculate_base_buffer,
@@ -220,3 +221,41 @@ def test_calculate_buffer_applies_weather_modifier():
     result = calculate_buffer(_trip_input(), stats, snow_ice=True)
     assert result.recommended_buffer_minutes == 20
     assert any("Snow" in r for r in result.reasons)
+
+
+# --- Phase 11 — construction/disruption signal ---
+
+def test_construction_yes_adds_10_minutes():
+    minutes, reasons, warnings = apply_construction_modifier("yes")
+    assert minutes == 10
+
+
+def test_construction_yes_adds_reason():
+    minutes, reasons, warnings = apply_construction_modifier("yes")
+    assert len(reasons) == 1
+
+
+def test_construction_unknown_adds_limitation():
+    minutes, reasons, warnings = apply_construction_modifier("unknown")
+    assert minutes == 0
+    assert len(warnings) == 1
+
+
+def test_construction_no_does_nothing():
+    minutes, reasons, warnings = apply_construction_modifier("no")
+    assert minutes == 0
+    assert reasons == []
+    assert warnings == []
+
+
+def test_calculate_buffer_applies_construction_modifier():
+    stats = StationStats(
+        station_name="Berlin Hbf",
+        sample_size=300,
+        late_rate=0.10,
+        cancellation_rate=0.02,
+        avg_delay_minutes=5,
+        p80_delay_minutes=10,
+    )
+    result = calculate_buffer(_trip_input(), stats, construction="yes")
+    assert result.recommended_buffer_minutes == 20
