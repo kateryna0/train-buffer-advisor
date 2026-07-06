@@ -2,6 +2,8 @@
 
 **Transparent deadline-based buffer advice for important train trips in Germany.**
 
+**Live demo:** https://train-buffer-advisor.streamlit.app
+
 ## What TrainBuffer is
 
 TrainBuffer is a Python/Streamlit web app that helps travelers decide **how early they should plan to arrive** for an important train trip in Germany. Instead of trying to predict the exact delay of a single Deutsche Bahn train, it gives a transparent buffer recommendation based on historical station reliability, trip type, deadline, confidence level, and optional manual weather/construction signals.
