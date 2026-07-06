@@ -11,7 +11,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 5 | Trip type conservatism | Done |
 | 6 | Customer-native recommendation text | Done |
 | 7 | Sample data layer | Done |
-| 8 | Streamlit UI skeleton | Not started |
+| 8 | Streamlit UI skeleton | Done |
 | 9 | Advice logging | Not started |
 | 10 | Weather signal (P1) | Not started |
 | 11 | Construction/disruption signal (P1) | Not started |
@@ -29,3 +29,4 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 5: `apply_trip_type_modifier` added to `src/risk_engine.py` (airport/interview_exam/government_visa_medical/transfer modifiers + warnings), wired into `calculate_buffer`; tests added; committed.
 - Phase 6: `build_recommendation_text` implemented in `src/recommendation.py` (risky/acceptable/no-data/airport/transfer wording); tests added; committed.
 - Phase 7: `data/sample_station_stats.csv` populated with 5 sample stations; `load_station_stats`/`get_station_stats` implemented in `src/data_loader.py`; tests added; committed.
+- Phase 8: Streamlit UI built in `app.py` (thin wrapper over `src/*`); manually verified locally (known station, unknown station no-data, airport modifier + warning, deadline calc, transfer warning); committed.
