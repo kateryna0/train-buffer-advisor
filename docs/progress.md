@@ -10,7 +10,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 4 | Deadline-based flow | Done |
 | 5 | Trip type conservatism | Done |
 | 6 | Customer-native recommendation text | Done |
-| 7 | Sample data layer | Not started |
+| 7 | Sample data layer | Done |
 | 8 | Streamlit UI skeleton | Not started |
 | 9 | Advice logging | Not started |
 | 10 | Weather signal (P1) | Not started |
@@ -28,3 +28,4 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 4: `calculate_latest_safe_arrival`, `is_planned_arrival_safe` implemented in `src/time_utils.py` (incl. midnight wraparound); tests added; committed.
 - Phase 5: `apply_trip_type_modifier` added to `src/risk_engine.py` (airport/interview_exam/government_visa_medical/transfer modifiers + warnings), wired into `calculate_buffer`; tests added; committed.
 - Phase 6: `build_recommendation_text` implemented in `src/recommendation.py` (risky/acceptable/no-data/airport/transfer wording); tests added; committed.
+- Phase 7: `data/sample_station_stats.csv` populated with 5 sample stations; `load_station_stats`/`get_station_stats` implemented in `src/data_loader.py`; tests added; committed.
