@@ -7,7 +7,7 @@ import streamlit as st
 from src.data_loader import get_station_stats, load_station_stats
 from src.logging_utils import log_advice
 from src.models import ALLOWED_TRIP_TYPES, TripInput
-from src.recommendation import build_recommendation_text
+from src.recommendation import NO_DATA_TEXT, build_recommendation_text
 from src.risk_engine import calculate_buffer
 from src.time_utils import calculate_latest_safe_arrival, is_planned_arrival_safe
 
@@ -59,11 +59,7 @@ if submitted:
 
         if stats is None:
             st.subheader("No data")
-            st.warning(
-                "There is not enough historical data for this destination "
-                "station to make a reliable recommendation. Please check DB "
-                "Navigator before departure and plan conservatively."
-            )
+            st.warning(NO_DATA_TEXT)
         else:
             result = calculate_buffer(
                 trip_input,

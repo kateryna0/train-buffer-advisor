@@ -37,3 +37,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 13: README.md rewritten to reflect implemented v1 (what/why/how it works, tech stack, setup/test instructions verified to work, project status, limitations, roadmap, AI-assisted workflow note); committed.
 - Phase 14: Repo pushed to github.com/kateryna0/train-buffer-advisor; deployed to Streamlit Community Cloud at https://train-buffer-advisor.streamlit.app (public); live link added to README; committed.
 - Phase 15: All 64 tests passing; v1.0 tag created and pushed.
+
+## Post-release audit (2026-07-06)
+
+Two independent audits verified all 15 phases against `trainbuffer_technical_delivery_plan.md`'s exact numeric thresholds, function signatures, and named test scenarios — all passed. One cosmetic finding: `app.py`'s "no data" branch hardcoded its own copy of the no-data message instead of reusing `src/recommendation.py`'s `NO_DATA_TEXT`. Fixed by importing and reusing `NO_DATA_TEXT` directly, removing the duplicated string. No functional or business-rule discrepancies found. 64/64 tests still passing after the fix.
