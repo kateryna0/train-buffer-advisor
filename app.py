@@ -5,12 +5,14 @@ from datetime import time
 import streamlit as st
 
 from src.data_loader import get_station_stats, load_station_stats
+from src.logging_utils import log_advice
 from src.models import ALLOWED_TRIP_TYPES, TripInput
 from src.recommendation import build_recommendation_text
 from src.risk_engine import calculate_buffer
 from src.time_utils import calculate_latest_safe_arrival, is_planned_arrival_safe
 
 STATION_STATS_PATH = "data/sample_station_stats.csv"
+ADVICE_LOG_PATH = "data/advice_log.csv"
 
 st.set_page_config(page_title="TrainBuffer", page_icon="🚆")
 
@@ -18,6 +20,10 @@ st.title("TrainBuffer")
 st.caption(
     "TrainBuffer v1 uses destination station reliability as the main "
     "historical signal. It does not predict exact train delays."
+)
+st.caption(
+    "This prototype may log anonymous query inputs locally for evaluation. "
+    "No account or personal profile is used."
 )
 
 station_stats = load_station_stats(STATION_STATS_PATH)
@@ -59,6 +65,8 @@ if submitted:
             result.is_planned_arrival_safe = is_planned_arrival_safe(
                 planned_arrival_time, result.latest_safe_planned_arrival
             )
+
+            log_advice(trip_input, result, ADVICE_LOG_PATH)
 
             st.subheader("Result")
             st.metric("Risk level", result.risk_level)
