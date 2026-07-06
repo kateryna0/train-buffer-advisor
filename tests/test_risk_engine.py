@@ -2,6 +2,7 @@ from datetime import time
 
 from src.models import StationStats, TripInput
 from src.risk_engine import (
+    apply_trip_type_modifier,
     calculate_base_buffer,
     calculate_buffer,
     calculate_confidence,
@@ -125,3 +126,50 @@ def test_calculate_buffer_high_cancellation_station():
     result = calculate_buffer(_trip_input(), stats)
     assert result.risk_level == "High"
     assert result.recommended_buffer_minutes == 35
+
+
+# --- Phase 5 — trip type conservatism ---
+
+def test_normal_trip_keeps_base_buffer():
+    minutes, warnings = apply_trip_type_modifier(10, "normal")
+    assert minutes == 10
+    assert warnings == []
+
+
+def test_airport_adds_20_minutes_and_warning():
+    minutes, warnings = apply_trip_type_modifier(10, "airport")
+    assert minutes == 30
+    assert any("security" in w for w in warnings)
+
+
+def test_interview_exam_adds_15_minutes():
+    minutes, warnings = apply_trip_type_modifier(10, "interview_exam")
+    assert minutes == 25
+    assert warnings == []
+
+
+def test_government_visa_medical_adds_15_minutes():
+    minutes, warnings = apply_trip_type_modifier(10, "government_visa_medical")
+    assert minutes == 25
+    assert warnings == []
+
+
+def test_transfer_returns_warning():
+    minutes, warnings = apply_trip_type_modifier(10, "transfer")
+    assert minutes == 10
+    assert any("not fully supported" in w for w in warnings)
+
+
+def test_calculate_buffer_applies_airport_modifier():
+    stats = StationStats(
+        station_name="München Hbf",
+        sample_size=180,
+        late_rate=0.34,
+        cancellation_rate=0.04,
+        avg_delay_minutes=9,
+        p80_delay_minutes=20,
+    )
+    result = calculate_buffer(_trip_input(trip_type="airport"), stats)
+    assert result.risk_level == "High"
+    assert result.recommended_buffer_minutes == 55
+    assert any("security" in w for w in result.warnings)

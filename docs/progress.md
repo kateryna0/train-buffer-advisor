@@ -8,7 +8,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 2 | Domain models | Done |
 | 3 | Core risk engine | Done |
 | 4 | Deadline-based flow | Done |
-| 5 | Trip type conservatism | Not started |
+| 5 | Trip type conservatism | Done |
 | 6 | Customer-native recommendation text | Not started |
 | 7 | Sample data layer | Not started |
 | 8 | Streamlit UI skeleton | Not started |
@@ -26,3 +26,4 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 2: `TripInput`, `StationStats`, `BufferRecommendation` implemented in `src/models.py` with validation; 6 tests added; committed.
 - Phase 3: `calculate_confidence`, `calculate_historical_risk`, `calculate_base_buffer`, `calculate_buffer` implemented in `src/risk_engine.py`; tests added; committed.
 - Phase 4: `calculate_latest_safe_arrival`, `is_planned_arrival_safe` implemented in `src/time_utils.py` (incl. midnight wraparound); tests added; committed.
+- Phase 5: `apply_trip_type_modifier` added to `src/risk_engine.py` (airport/interview_exam/government_visa_medical/transfer modifiers + warnings), wired into `calculate_buffer`; tests added; committed.

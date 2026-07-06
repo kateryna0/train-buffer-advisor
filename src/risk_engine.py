@@ -10,6 +10,24 @@ BASE_BUFFER_MINUTES = {
     "High": 35,
 }
 
+TRIP_TYPE_MODIFIER_MINUTES = {
+    "normal": 0,
+    "airport": 20,
+    "interview_exam": 15,
+    "government_visa_medical": 15,
+    "transfer": 0,
+}
+
+AIRPORT_WARNING = (
+    "Airport buffer does not include security, baggage drop, or walking time "
+    "inside the airport."
+)
+
+TRANSFER_WARNING = (
+    "Transfer mode is not fully supported in TrainBuffer v1. Use this result "
+    "only as a rough warning."
+)
+
 
 def calculate_confidence(sample_size: int) -> str:
     if sample_size < 20:
@@ -40,6 +58,20 @@ def calculate_base_buffer(risk_level: str) -> int | None:
     return BASE_BUFFER_MINUTES.get(risk_level)
 
 
+def apply_trip_type_modifier(
+    base_buffer_minutes: int, trip_type: str
+) -> tuple[int, list[str]]:
+    warnings: list[str] = []
+    modifier = TRIP_TYPE_MODIFIER_MINUTES.get(trip_type, 0)
+
+    if trip_type == "airport":
+        warnings.append(AIRPORT_WARNING)
+    if trip_type == "transfer":
+        warnings.append(TRANSFER_WARNING)
+
+    return base_buffer_minutes + modifier, warnings
+
+
 def calculate_buffer(trip_input: TripInput, station_stats: StationStats) -> BufferRecommendation:
     confidence_level = calculate_confidence(station_stats.sample_size)
 
@@ -60,7 +92,10 @@ def calculate_buffer(trip_input: TripInput, station_stats: StationStats) -> Buff
     risk_level = calculate_historical_risk(
         station_stats.late_rate, station_stats.cancellation_rate
     )
-    recommended_buffer_minutes = calculate_base_buffer(risk_level)
+    base_buffer_minutes = calculate_base_buffer(risk_level)
+    recommended_buffer_minutes, trip_type_warnings = apply_trip_type_modifier(
+        base_buffer_minutes, trip_input.trip_type
+    )
 
     reasons = [
         f"Historical late rate at {station_stats.station_name} is "
@@ -79,6 +114,6 @@ def calculate_buffer(trip_input: TripInput, station_stats: StationStats) -> Buff
         is_planned_arrival_safe=None,
         confidence_level=confidence_level,
         reasons=reasons,
-        warnings=[],
+        warnings=trip_type_warnings,
         data_sources=[station_stats.station_name],
     )
