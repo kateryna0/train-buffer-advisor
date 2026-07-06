@@ -7,7 +7,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 1 | Project setup | Done |
 | 2 | Domain models | Done |
 | 3 | Core risk engine | Done |
-| 4 | Deadline-based flow | Not started |
+| 4 | Deadline-based flow | Done |
 | 5 | Trip type conservatism | Not started |
 | 6 | Customer-native recommendation text | Not started |
 | 7 | Sample data layer | Not started |
@@ -25,3 +25,4 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 1: git repo initialized, full scaffold created (`app.py`, `src/`, `tests/`, `data/`, `docs/`), import test passing, committed.
 - Phase 2: `TripInput`, `StationStats`, `BufferRecommendation` implemented in `src/models.py` with validation; 6 tests added; committed.
 - Phase 3: `calculate_confidence`, `calculate_historical_risk`, `calculate_base_buffer`, `calculate_buffer` implemented in `src/risk_engine.py`; tests added; committed.
+- Phase 4: `calculate_latest_safe_arrival`, `is_planned_arrival_safe` implemented in `src/time_utils.py` (incl. midnight wraparound); tests added; committed.
