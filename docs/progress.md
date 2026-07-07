@@ -22,6 +22,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 16 | Better UI design (P1-4) | Done |
 | 17 | Real weather API (P1-5) | Done |
 | 18 | Live upstream delay check (v1.5) | Done |
+| 19 | Reliability board (v2) | Done |
 
 ## Log
 
@@ -46,6 +47,9 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 17: `src/weather_client.py` added — live weather via Open-Meteo (stdlib `urllib`, no new dependency), with explicit testable thresholds (wind > 50 km/h, temp > 30 °C, snowfall > 0 or WMO snow code). `fetch_weather_signal` maps a reading to strong_wind/heat/snow_ice flags; `get_weather_flags_with_fallback` degrades to all-False + warning on any failure so behavior matches v1 when the API is down. Network call isolated in `_fetch_current_weather` and mocked in tests (8 tests, no real network). `apply_weather_modifier` unchanged — only the flag source changed. `app.py` now looks up weather automatically for the destination station with a "Weather source: live/unavailable" caption and a collapsed manual-override group. 78/78 tests passing.
 
 - Phase 18: `src/live_delay_client.py` added — optional live upstream delay check for a specific train (v1.5). `validate_train_number` guards format before any network call; `fetch_live_delay` returns `{currently_delayed, delay_minutes}` or `None`, failing closed (invalid format, timeout, not found, malformed data all → `None`, never raises); `apply_live_delay_modifier` increases the buffer and adds a warning when delayed, and is a strict no-op when live data is absent, not delayed, or the recommendation is no_data. Network call isolated in `_request_train_status` (db.transport.rest, 5s timeout) and mocked in tests (10 tests, no real network). `app.py` adds an optional "Train number" input and a "Live status: delayed by X min / on time / unavailable" caption; app degrades exactly to v1 when the field is blank or the API is down. 88/88 tests passing.
+
+- Phase 19: `src/reliability_board.py` added — `compute_reliability_rankings(stats_by_station, top_n=3)` returns worst-N stations by `late_rate` and by `cancellation_rate` as a pure, tested function (ordering highest-rate-first, ties broken deterministically by station name, empty input → empty rankings). `app.py` split into two tabs ("Trip advisor" / "Reliability board"); the board renders the rankings and a data-freshness indicator (mtime of `data/sample_station_stats.csv`). 4 tests added; 92/92 passing.
+  - **Construction/disruption data-source decision (required by plan):** the P1 manual per-trip construction flag (`no`/`yes`/`unknown`) is **kept**. No low-complexity, stable, free construction/disruption source was confirmed feasible for v2 (DB disruption feeds require auth/terms review and route-matching complexity out of scope here, and must not become a hard dependency per guardrail rule 4). Documented and surfaced in the reliability board UI. Real construction data (P2-3) remains deferred.
 
 ## Post-release audit (2026-07-06)
 

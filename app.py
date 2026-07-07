@@ -3,17 +3,19 @@
 Presentation and orchestration only. All calculations live in src/*.
 """
 
-from datetime import time
+import os
+from datetime import datetime, time
 
 import streamlit as st
 
 from src.data_loader import get_station_stats, load_station_stats
+from src.live_delay_client import apply_live_delay_modifier, fetch_live_delay
 from src.logging_utils import log_advice
 from src.models import ALLOWED_TRIP_TYPES, TripInput
 from src.recommendation import NO_DATA_TEXT, build_recommendation_text
+from src.reliability_board import compute_reliability_rankings
 from src.risk_engine import calculate_buffer
 from src.time_utils import calculate_latest_safe_arrival, is_planned_arrival_safe
-from src.live_delay_client import apply_live_delay_modifier, fetch_live_delay
 from src.ui_helpers import risk_badge
 from src.weather_client import STATION_COORDINATES, get_weather_flags_with_fallback
 
@@ -53,177 +55,222 @@ st.caption(
 
 station_stats = load_station_stats(STATION_STATS_PATH)
 
-# --- Input form -------------------------------------------------------------
-with st.form("trip_form"):
-    col1, col2 = st.columns(2)
-    with col1:
-        origin_station = st.text_input("Origin station", value="Berlin Hbf")
-        planned_arrival_time = st.time_input(
-            "Planned arrival time", value=time(9, 40)
-        )
-        trip_type = st.selectbox("Trip type", sorted(ALLOWED_TRIP_TYPES))
-    with col2:
-        destination_station = st.text_input(
-            "Destination station", value="Hamburg Hbf"
-        )
-        arrival_deadline = st.time_input("Arrival deadline", value=time(10, 0))
-        train_number = st.text_input(
-            "Train number (optional, e.g. ICE 123)", value=""
-        )
+advisor_tab, board_tab = st.tabs(["Trip advisor", "Reliability board"])
 
-    with st.expander("Advanced conditions (optional)"):
-        st.caption(
-            "Set these only if you already know the conditions on your route. "
-            "Leaving them untouched keeps the base recommendation."
-        )
-        st.write("**Weather**")
-        st.caption(
-            "Weather is looked up automatically from a live source for the "
-            "destination station. Enable manual override only if the live "
-            "source is down or you know the conditions."
-        )
-        manual_weather_override = st.checkbox("Override weather manually")
-        wcol1, wcol2, wcol3 = st.columns(3)
-        with wcol1:
-            manual_strong_wind = st.checkbox("💨 Strong wind")
-        with wcol2:
-            manual_heat = st.checkbox("🌡️ Heat")
-        with wcol3:
-            manual_snow_ice = st.checkbox("❄️ Snow or ice")
-        construction = st.selectbox(
-            "🚧 Known construction/disruption on route?",
-            ["no", "yes", "unknown"],
-        )
-
-    submitted = st.form_submit_button("Get advice")
-
-# --- Result -----------------------------------------------------------------
-if submitted:
-    if not origin_station or not destination_station:
-        st.error("Please enter both an origin and a destination station.")
-    else:
-        trip_input = TripInput(
-            origin_station=origin_station,
-            destination_station=destination_station,
-            planned_arrival_time=planned_arrival_time,
-            arrival_deadline=arrival_deadline,
-            trip_type=trip_type,
-        )
-
-        stats = get_station_stats(destination_station, station_stats)
-
-        if stats is None:
-            badge = risk_badge("no_data")
-            st.subheader("Result")
-            st.markdown(
-                f"<span style='background:{badge['color']};color:white;"
-                f"padding:4px 12px;border-radius:12px;font-weight:600;'>"
-                f"{badge['emoji']} {badge['label']}</span>",
-                unsafe_allow_html=True,
+# --- Trip advisor -----------------------------------------------------------
+with advisor_tab:
+    with st.form("trip_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            origin_station = st.text_input("Origin station", value="Berlin Hbf")
+            planned_arrival_time = st.time_input(
+                "Planned arrival time", value=time(9, 40)
             )
-            st.warning(NO_DATA_TEXT)
+            trip_type = st.selectbox("Trip type", sorted(ALLOWED_TRIP_TYPES))
+        with col2:
+            destination_station = st.text_input(
+                "Destination station", value="Hamburg Hbf"
+            )
+            arrival_deadline = st.time_input("Arrival deadline", value=time(10, 0))
+            train_number = st.text_input(
+                "Train number (optional, e.g. ICE 123)", value=""
+            )
+
+        with st.expander("Advanced conditions (optional)"):
+            st.caption(
+                "Set these only if you already know the conditions on your "
+                "route. Leaving them untouched keeps the base recommendation."
+            )
+            st.write("**Weather**")
+            st.caption(
+                "Weather is looked up automatically from a live source for the "
+                "destination station. Enable manual override only if the live "
+                "source is down or you know the conditions."
+            )
+            manual_weather_override = st.checkbox("Override weather manually")
+            wcol1, wcol2, wcol3 = st.columns(3)
+            with wcol1:
+                manual_strong_wind = st.checkbox("💨 Strong wind")
+            with wcol2:
+                manual_heat = st.checkbox("🌡️ Heat")
+            with wcol3:
+                manual_snow_ice = st.checkbox("❄️ Snow or ice")
+            construction = st.selectbox(
+                "🚧 Known construction/disruption on route?",
+                ["no", "yes", "unknown"],
+            )
+
+        submitted = st.form_submit_button("Get advice")
+
+    if submitted:
+        if not origin_station or not destination_station:
+            st.error("Please enter both an origin and a destination station.")
         else:
-            # Resolve weather flags: manual override wins; otherwise use the
-            # live source, which degrades to all-False if unavailable.
-            if manual_weather_override:
-                strong_wind = manual_strong_wind
-                heat = manual_heat
-                snow_ice = manual_snow_ice
-                weather_caption = "Weather source: manual override"
-            else:
-                weather = get_weather_flags_with_fallback(
-                    destination_station, STATION_COORDINATES
-                )
-                strong_wind = weather["strong_wind"]
-                heat = weather["heat"]
-                snow_ice = weather["snow_ice"]
-                weather_caption = (
-                    "Weather source: live"
-                    if weather["source"] == "live"
-                    else "Weather source: unavailable"
-                )
-
-            result = calculate_buffer(
-                trip_input,
-                stats,
-                strong_wind=strong_wind,
-                heat=heat,
-                snow_ice=snow_ice,
-                construction=construction,
+            trip_input = TripInput(
+                origin_station=origin_station,
+                destination_station=destination_station,
+                planned_arrival_time=planned_arrival_time,
+                arrival_deadline=arrival_deadline,
+                trip_type=trip_type,
             )
 
-            # Optional live upstream delay check. Fails closed to v1 behavior:
-            # a blank/invalid number or an unavailable API yields None (no-op).
-            live_delay_info = None
-            live_status_caption = None
-            if train_number.strip():
-                live_delay_info = fetch_live_delay(train_number)
-                result = apply_live_delay_modifier(result, live_delay_info)
-                if live_delay_info is None:
-                    live_status_caption = "Live status: unavailable"
-                elif live_delay_info["currently_delayed"]:
-                    live_status_caption = (
-                        f"Live status: delayed by "
-                        f"{live_delay_info['delay_minutes']} min"
-                    )
+            stats = get_station_stats(destination_station, station_stats)
+
+            if stats is None:
+                badge = risk_badge("no_data")
+                st.subheader("Result")
+                st.markdown(
+                    f"<span style='background:{badge['color']};color:white;"
+                    f"padding:4px 12px;border-radius:12px;font-weight:600;'>"
+                    f"{badge['emoji']} {badge['label']}</span>",
+                    unsafe_allow_html=True,
+                )
+                st.warning(NO_DATA_TEXT)
+            else:
+                # Resolve weather flags: manual override wins; otherwise use the
+                # live source, which degrades to all-False if unavailable.
+                if manual_weather_override:
+                    strong_wind = manual_strong_wind
+                    heat = manual_heat
+                    snow_ice = manual_snow_ice
+                    weather_caption = "Weather source: manual override"
                 else:
-                    live_status_caption = "Live status: on time"
+                    weather = get_weather_flags_with_fallback(
+                        destination_station, STATION_COORDINATES
+                    )
+                    strong_wind = weather["strong_wind"]
+                    heat = weather["heat"]
+                    snow_ice = weather["snow_ice"]
+                    weather_caption = (
+                        "Weather source: live"
+                        if weather["source"] == "live"
+                        else "Weather source: unavailable"
+                    )
 
-            result.latest_safe_planned_arrival = calculate_latest_safe_arrival(
-                arrival_deadline, result.recommended_buffer_minutes
-            )
-            result.is_planned_arrival_safe = is_planned_arrival_safe(
-                planned_arrival_time, result.latest_safe_planned_arrival
-            )
-
-            log_advice(trip_input, result, ADVICE_LOG_PATH)
-
-            badge = risk_badge(result.risk_level)
-
-            st.subheader("Result")
-            st.markdown(
-                f"<span style='background:{badge['color']};color:white;"
-                f"padding:4px 12px;border-radius:12px;font-weight:600;'>"
-                f"{badge['emoji']} {badge['label']}</span>",
-                unsafe_allow_html=True,
-            )
-
-            safe = result.is_planned_arrival_safe
-            rcol1, rcol2 = st.columns(2)
-            with rcol1:
-                st.metric(
-                    "Recommended buffer",
-                    f"{result.recommended_buffer_minutes} min",
+                result = calculate_buffer(
+                    trip_input,
+                    stats,
+                    strong_wind=strong_wind,
+                    heat=heat,
+                    snow_ice=snow_ice,
+                    construction=construction,
                 )
-                st.metric(
-                    "Latest safe planned arrival",
-                    result.latest_safe_planned_arrival.strftime("%H:%M"),
+
+                # Optional live upstream delay check. Fails closed to v1
+                # behavior: a blank/invalid number or an unavailable API yields
+                # None (no-op).
+                live_delay_info = None
+                live_status_caption = None
+                if train_number.strip():
+                    live_delay_info = fetch_live_delay(train_number)
+                    result = apply_live_delay_modifier(result, live_delay_info)
+                    if live_delay_info is None:
+                        live_status_caption = "Live status: unavailable"
+                    elif live_delay_info["currently_delayed"]:
+                        live_status_caption = (
+                            f"Live status: delayed by "
+                            f"{live_delay_info['delay_minutes']} min"
+                        )
+                    else:
+                        live_status_caption = "Live status: on time"
+
+                result.latest_safe_planned_arrival = calculate_latest_safe_arrival(
+                    arrival_deadline, result.recommended_buffer_minutes
                 )
-            with rcol2:
-                st.metric(
-                    "Planned arrival safe?",
-                    "✅ Yes" if safe else "⚠️ No",
+                result.is_planned_arrival_safe = is_planned_arrival_safe(
+                    planned_arrival_time, result.latest_safe_planned_arrival
                 )
-                st.metric("Confidence level", result.confidence_level)
 
-            st.caption(weather_caption)
-            if live_status_caption:
-                st.caption(live_status_caption)
+                log_advice(trip_input, result, ADVICE_LOG_PATH)
 
-            if safe:
-                st.success(build_recommendation_text(trip_input, result))
-            else:
-                st.error(build_recommendation_text(trip_input, result))
+                badge = risk_badge(result.risk_level)
 
-            if result.reasons:
-                with st.expander("Reasons", expanded=True):
-                    for reason in result.reasons:
-                        st.write(f"- {reason}")
+                st.subheader("Result")
+                st.markdown(
+                    f"<span style='background:{badge['color']};color:white;"
+                    f"padding:4px 12px;border-radius:12px;font-weight:600;'>"
+                    f"{badge['emoji']} {badge['label']}</span>",
+                    unsafe_allow_html=True,
+                )
 
-            if result.warnings:
-                for warning in result.warnings:
-                    st.warning(warning)
+                safe = result.is_planned_arrival_safe
+                rcol1, rcol2 = st.columns(2)
+                with rcol1:
+                    st.metric(
+                        "Recommended buffer",
+                        f"{result.recommended_buffer_minutes} min",
+                    )
+                    st.metric(
+                        "Latest safe planned arrival",
+                        result.latest_safe_planned_arrival.strftime("%H:%M"),
+                    )
+                with rcol2:
+                    st.metric(
+                        "Planned arrival safe?",
+                        "✅ Yes" if safe else "⚠️ No",
+                    )
+                    st.metric("Confidence level", result.confidence_level)
 
-            with st.expander("Data sources"):
-                for source in result.data_sources:
-                    st.caption(source)
+                st.caption(weather_caption)
+                if live_status_caption:
+                    st.caption(live_status_caption)
+
+                if safe:
+                    st.success(build_recommendation_text(trip_input, result))
+                else:
+                    st.error(build_recommendation_text(trip_input, result))
+
+                if result.reasons:
+                    with st.expander("Reasons", expanded=True):
+                        for reason in result.reasons:
+                            st.write(f"- {reason}")
+
+                if result.warnings:
+                    for warning in result.warnings:
+                        st.warning(warning)
+
+                with st.expander("Data sources"):
+                    for source in result.data_sources:
+                        st.caption(source)
+
+# --- Reliability board ------------------------------------------------------
+with board_tab:
+    st.subheader("Reliability board")
+    st.caption(
+        "Aggregate view of the least reliable stations in the current dataset. "
+        "Higher rates are worse."
+    )
+
+    rankings = compute_reliability_rankings(station_stats)
+
+    bcol1, bcol2 = st.columns(2)
+    with bcol1:
+        st.write("**Worst by late rate**")
+        if rankings["worst_by_late_rate"]:
+            for name, rate in rankings["worst_by_late_rate"]:
+                st.write(f"- {name}: {rate:.0%}")
+        else:
+            st.caption("No stations in dataset.")
+    with bcol2:
+        st.write("**Worst by cancellation rate**")
+        if rankings["worst_by_cancellation_rate"]:
+            for name, rate in rankings["worst_by_cancellation_rate"]:
+                st.write(f"- {name}: {rate:.0%}")
+        else:
+            st.caption("No stations in dataset.")
+
+    # Data freshness indicator: when the underlying dataset file last changed.
+    try:
+        updated_at = datetime.fromtimestamp(
+            os.path.getmtime(STATION_STATS_PATH)
+        ).strftime("%Y-%m-%d %H:%M")
+        st.caption(f"Dataset last updated: {updated_at}")
+    except OSError:
+        st.caption("Dataset last updated: unknown")
+
+    st.caption(
+        "Construction/disruption remains a manual per-trip flag in the advisor: "
+        "no low-complexity, stable free source was confirmed feasible for v2, "
+        "so the manual flag is kept and this decision is documented in "
+        "docs/progress.md."
+    )
