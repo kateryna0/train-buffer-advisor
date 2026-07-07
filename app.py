@@ -14,6 +14,7 @@ from src.recommendation import NO_DATA_TEXT, build_recommendation_text
 from src.risk_engine import calculate_buffer
 from src.time_utils import calculate_latest_safe_arrival, is_planned_arrival_safe
 from src.ui_helpers import risk_badge
+from src.weather_client import STATION_COORDINATES, get_weather_flags_with_fallback
 
 STATION_STATS_PATH = "data/sample_station_stats.csv"
 ADVICE_LOG_PATH = "data/advice_log.csv"
@@ -72,13 +73,19 @@ with st.form("trip_form"):
             "Leaving them untouched keeps the base recommendation."
         )
         st.write("**Weather**")
+        st.caption(
+            "Weather is looked up automatically from a live source for the "
+            "destination station. Enable manual override only if the live "
+            "source is down or you know the conditions."
+        )
+        manual_weather_override = st.checkbox("Override weather manually")
         wcol1, wcol2, wcol3 = st.columns(3)
         with wcol1:
-            strong_wind = st.checkbox("💨 Strong wind")
+            manual_strong_wind = st.checkbox("💨 Strong wind")
         with wcol2:
-            heat = st.checkbox("🌡️ Heat")
+            manual_heat = st.checkbox("🌡️ Heat")
         with wcol3:
-            snow_ice = st.checkbox("❄️ Snow or ice")
+            manual_snow_ice = st.checkbox("❄️ Snow or ice")
         construction = st.selectbox(
             "🚧 Known construction/disruption on route?",
             ["no", "yes", "unknown"],
@@ -112,6 +119,26 @@ if submitted:
             )
             st.warning(NO_DATA_TEXT)
         else:
+            # Resolve weather flags: manual override wins; otherwise use the
+            # live source, which degrades to all-False if unavailable.
+            if manual_weather_override:
+                strong_wind = manual_strong_wind
+                heat = manual_heat
+                snow_ice = manual_snow_ice
+                weather_caption = "Weather source: manual override"
+            else:
+                weather = get_weather_flags_with_fallback(
+                    destination_station, STATION_COORDINATES
+                )
+                strong_wind = weather["strong_wind"]
+                heat = weather["heat"]
+                snow_ice = weather["snow_ice"]
+                weather_caption = (
+                    "Weather source: live"
+                    if weather["source"] == "live"
+                    else "Weather source: unavailable"
+                )
+
             result = calculate_buffer(
                 trip_input,
                 stats,
@@ -156,6 +183,8 @@ if submitted:
                     "✅ Yes" if safe else "⚠️ No",
                 )
                 st.metric("Confidence level", result.confidence_level)
+
+            st.caption(weather_caption)
 
             if safe:
                 st.success(build_recommendation_text(trip_input, result))
