@@ -21,6 +21,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 15 | V1 release | Done |
 | 16 | Better UI design (P1-4) | Done |
 | 17 | Real weather API (P1-5) | Done |
+| 18 | Live upstream delay check (v1.5) | Done |
 
 ## Log
 
@@ -43,6 +44,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 16: Streamlit UI redesign (P1-4, presentation only) — color-coded risk badge (green/amber/red/grey), two-column result card with icons, weather + construction grouped under an "Advanced conditions" expander, and a "How TrainBuffer works" sidebar explainer. Badge color/emoji mapping extracted to a pure `src/ui_helpers.py:risk_badge` (keeps `app.py` thin); 6 tests added. No business-logic changes; 70/70 tests passing.
 
 - Phase 17: `src/weather_client.py` added — live weather via Open-Meteo (stdlib `urllib`, no new dependency), with explicit testable thresholds (wind > 50 km/h, temp > 30 °C, snowfall > 0 or WMO snow code). `fetch_weather_signal` maps a reading to strong_wind/heat/snow_ice flags; `get_weather_flags_with_fallback` degrades to all-False + warning on any failure so behavior matches v1 when the API is down. Network call isolated in `_fetch_current_weather` and mocked in tests (8 tests, no real network). `apply_weather_modifier` unchanged — only the flag source changed. `app.py` now looks up weather automatically for the destination station with a "Weather source: live/unavailable" caption and a collapsed manual-override group. 78/78 tests passing.
+
+- Phase 18: `src/live_delay_client.py` added — optional live upstream delay check for a specific train (v1.5). `validate_train_number` guards format before any network call; `fetch_live_delay` returns `{currently_delayed, delay_minutes}` or `None`, failing closed (invalid format, timeout, not found, malformed data all → `None`, never raises); `apply_live_delay_modifier` increases the buffer and adds a warning when delayed, and is a strict no-op when live data is absent, not delayed, or the recommendation is no_data. Network call isolated in `_request_train_status` (db.transport.rest, 5s timeout) and mocked in tests (10 tests, no real network). `app.py` adds an optional "Train number" input and a "Live status: delayed by X min / on time / unavailable" caption; app degrades exactly to v1 when the field is blank or the API is down. 88/88 tests passing.
 
 ## Post-release audit (2026-07-06)
 

@@ -13,6 +13,7 @@ from src.models import ALLOWED_TRIP_TYPES, TripInput
 from src.recommendation import NO_DATA_TEXT, build_recommendation_text
 from src.risk_engine import calculate_buffer
 from src.time_utils import calculate_latest_safe_arrival, is_planned_arrival_safe
+from src.live_delay_client import apply_live_delay_modifier, fetch_live_delay
 from src.ui_helpers import risk_badge
 from src.weather_client import STATION_COORDINATES, get_weather_flags_with_fallback
 
@@ -66,6 +67,9 @@ with st.form("trip_form"):
             "Destination station", value="Hamburg Hbf"
         )
         arrival_deadline = st.time_input("Arrival deadline", value=time(10, 0))
+        train_number = st.text_input(
+            "Train number (optional, e.g. ICE 123)", value=""
+        )
 
     with st.expander("Advanced conditions (optional)"):
         st.caption(
@@ -147,6 +151,24 @@ if submitted:
                 snow_ice=snow_ice,
                 construction=construction,
             )
+
+            # Optional live upstream delay check. Fails closed to v1 behavior:
+            # a blank/invalid number or an unavailable API yields None (no-op).
+            live_delay_info = None
+            live_status_caption = None
+            if train_number.strip():
+                live_delay_info = fetch_live_delay(train_number)
+                result = apply_live_delay_modifier(result, live_delay_info)
+                if live_delay_info is None:
+                    live_status_caption = "Live status: unavailable"
+                elif live_delay_info["currently_delayed"]:
+                    live_status_caption = (
+                        f"Live status: delayed by "
+                        f"{live_delay_info['delay_minutes']} min"
+                    )
+                else:
+                    live_status_caption = "Live status: on time"
+
             result.latest_safe_planned_arrival = calculate_latest_safe_arrival(
                 arrival_deadline, result.recommended_buffer_minutes
             )
@@ -185,6 +207,8 @@ if submitted:
                 st.metric("Confidence level", result.confidence_level)
 
             st.caption(weather_caption)
+            if live_status_caption:
+                st.caption(live_status_caption)
 
             if safe:
                 st.success(build_recommendation_text(trip_input, result))
