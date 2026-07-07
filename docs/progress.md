@@ -23,6 +23,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 17 | Real weather API (P1-5) | Done |
 | 18 | Live upstream delay check (v1.5) | Done |
 | 19 | Reliability board (v2) | Done |
+| 20a | Multi-leg trip input model (v3) | Done |
 
 ## Log
 
@@ -50,6 +51,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 
 - Phase 19: `src/reliability_board.py` added — `compute_reliability_rankings(stats_by_station, top_n=3)` returns worst-N stations by `late_rate` and by `cancellation_rate` as a pure, tested function (ordering highest-rate-first, ties broken deterministically by station name, empty input → empty rankings). `app.py` split into two tabs ("Trip advisor" / "Reliability board"); the board renders the rankings and a data-freshness indicator (mtime of `data/sample_station_stats.csv`). 4 tests added; 92/92 passing.
   - **Construction/disruption data-source decision (required by plan):** the P1 manual per-trip construction flag (`no`/`yes`/`unknown`) is **kept**. No low-complexity, stable, free construction/disruption source was confirmed feasible for v2 (DB disruption feeds require auth/terms review and route-matching complexity out of scope here, and must not become a hard dependency per guardrail rule 4). Documented and surfaced in the reliability board UI. Real construction data (P2-3) remains deferred.
+
+- Phase 20a: `TripLeg` and `MultiLegTripInput` added to `src/models.py` for v3 connection mode (input model only — no calculation yet). `TripLeg` holds origin/destination and planned departure/arrival times with validation; `MultiLegTripInput` requires ≥2 legs, enforces that adjacent legs connect (destination of one = origin of next), validates trip_type, and exposes `transfer_stations` and `final_destination` helpers. 7 tests added; 99/99 passing. No changes to existing models or the advisor flow.
 
 ## Post-release audit (2026-07-06)
 

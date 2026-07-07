@@ -33,6 +33,67 @@ class TripInput:
 
 
 @dataclass
+class TripLeg:
+    """A single train leg within a multi-leg (connecting) trip."""
+
+    origin_station: str
+    destination_station: str
+    planned_departure_time: time
+    planned_arrival_time: time
+
+    def __post_init__(self):
+        if not self.origin_station:
+            raise ValueError("origin_station must not be empty")
+        if not self.destination_station:
+            raise ValueError("destination_station must not be empty")
+        if self.origin_station == self.destination_station:
+            raise ValueError(
+                "leg origin_station and destination_station must differ"
+            )
+
+
+@dataclass
+class MultiLegTripInput:
+    """A connecting trip: two or more legs plus a final deadline.
+
+    v3 connection mode. Adjacent legs must connect (the destination of one leg
+    is the origin of the next), which is where the transfer happens.
+    """
+
+    legs: list["TripLeg"]
+    arrival_deadline: time
+    trip_type: str
+
+    def __post_init__(self):
+        if len(self.legs) < 2:
+            raise ValueError(
+                "a multi-leg trip must have at least 2 legs; use TripInput "
+                "for a single-leg trip"
+            )
+        for earlier, later in zip(self.legs, self.legs[1:]):
+            if earlier.destination_station != later.origin_station:
+                raise ValueError(
+                    "legs must connect: leg destination "
+                    f"{earlier.destination_station!r} does not match next "
+                    f"leg origin {later.origin_station!r}"
+                )
+        if self.trip_type not in ALLOWED_TRIP_TYPES:
+            raise ValueError(
+                f"invalid trip_type: {self.trip_type!r}, "
+                f"must be one of {sorted(ALLOWED_TRIP_TYPES)}"
+            )
+
+    @property
+    def transfer_stations(self) -> list[str]:
+        """Stations where the traveler changes trains (between legs)."""
+        return [leg.destination_station for leg in self.legs[:-1]]
+
+    @property
+    def final_destination(self) -> str:
+        return self.legs[-1].destination_station
+
+
+@dataclass
 class StationStats:
     station_name: str
     sample_size: int
