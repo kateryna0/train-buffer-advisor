@@ -19,6 +19,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 13 | Documentation update | Done |
 | 14 | Deployment | Done |
 | 15 | V1 release | Done |
+| 16 | Better UI design (P1-4) | Done |
 
 ## Log
 
@@ -37,6 +38,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 13: README.md rewritten to reflect implemented v1 (what/why/how it works, tech stack, setup/test instructions verified to work, project status, limitations, roadmap, AI-assisted workflow note); committed.
 - Phase 14: Repo pushed to github.com/kateryna0/train-buffer-advisor; deployed to Streamlit Community Cloud at https://train-buffer-advisor.streamlit.app (public); live link added to README; committed.
 - Phase 15: All 64 tests passing; v1.0 tag created and pushed.
+
+- Phase 16: Streamlit UI redesign (P1-4, presentation only) — color-coded risk badge (green/amber/red/grey), two-column result card with icons, weather + construction grouped under an "Advanced conditions" expander, and a "How TrainBuffer works" sidebar explainer. Badge color/emoji mapping extracted to a pure `src/ui_helpers.py:risk_badge` (keeps `app.py` thin); 6 tests added. No business-logic changes; 70/70 tests passing.
 
 ## Post-release audit (2026-07-06)
 
