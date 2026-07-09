@@ -115,7 +115,7 @@ Reading the real parquet locally requires a parquet engine (e.g. `pip install py
 
 ## Project status
 
-**V1, v1.5, v2, and v3 are implemented and passing tests (121 tests).** See [docs/progress.md](docs/progress.md) for phase-by-phase delivery status. Completed:
+**V1, v1.5, v2, v3, and the v2.1 production-readiness milestone are implemented and passing tests (151 tests).** See [docs/progress.md](docs/progress.md) for phase-by-phase delivery status. Completed:
 
 - **v1 core:** domain models, risk engine, deadline logic, trip type modifiers, recommendation text, sample station data layer (5 stations), Streamlit UI, privacy-safe anonymous advice logging, manual weather/construction modifiers, and end-to-end backend tests. Deployed to Streamlit Community Cloud and tagged `v1.0`.
 - **Better UI design (P1-4):** color-coded risk badge, grouped result card, "Advanced conditions" section, and a "How TrainBuffer works" sidebar.
@@ -123,6 +123,7 @@ Reading the real parquet locally requires a parquet engine (e.g. `pip install py
 - **v1.5 — live upstream delay check:** optional per-train live delay signal that increases the buffer when the train is already delayed, failing closed to v1 behavior when unavailable.
 - **v2 — reliability board:** worst-station rankings (by late rate and cancellation rate) with a data-freshness indicator.
 - **v3 — connection mode:** multi-leg trips with transfer-time modeling and a "will I make my transfer?" connection-risk assessment plus next-train fallback messaging.
+- **v2.1 — production readiness:** CI (pytest + import smoke check) with a pinned Python version, cached/hardened live API calls, and **real aggregated Deutsche Bahn statistics for the top 100 stations** (with the sample dataset kept as an automatic fallback). Tagged `v2.1`.
 
 ## Limitations
 
@@ -135,12 +136,11 @@ Reading the real parquet locally requires a parquet engine (e.g. `pip install py
 
 ## Roadmap
 
-Delivered (see Project status above): better UI design, live weather API, live upstream delay check (v1.5), reliability board (v2), and connection mode (v3).
+Delivered (see Project status above): better UI design, live weather API, live upstream delay check (v1.5), reliability board (v2), connection mode (v3), and the v2.1 production-readiness milestone (CI, hardening, real historical data — P2-1 done).
 
 Remaining:
 
-- **Real DB historical data aggregation (P2-1):** replace the 5-station sample dataset with real aggregated Deutsche Bahn statistics.
-- **Real construction/disruption data (P2-3):** currently a documented deferral; kept as a manual flag until a stable, low-complexity source is confirmed.
+- **Real construction/disruption data (P2-3, plan Phase 24):** deferred, to be revisited — kept as a manual flag until a stable, low-complexity, free source is confirmed feasible.
 - **Mobile/PWA (P2-5):** out of scope; not planned.
 
 See `docs/12-v2-technical-delivery-plan.md`, `trainbuffer_technical_delivery_plan.md`, and `docs/09-roadmap-definition-of-done.md` for the full backlog.

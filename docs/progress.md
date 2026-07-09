@@ -34,6 +34,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 23a | Real historical data source decision (research) | Done |
 | 23b | Offline data ingestion pipeline | Done |
 | 23c | Wire real data into app with fallback | Done |
+| 24 | Real construction/disruption data (P2-3) | Deferred — revisit |
+| 25 | Release & polish (v2.1) | Done |
 
 ## Log
 
@@ -83,6 +85,9 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 23b: `src/data_ingest.py` added — offline batch pipeline turning per-stop DB records into StationStats-shaped output. `aggregate_station_stats` groups by station and computes sample_size, cancellation_rate (cancelled/all stops), late_rate (share of non-cancelled stops with arrival delay >= 6 min, tunable), avg_delay_minutes, and p80_delay_minutes; cancelled stops are excluded from delay metrics. `read_stops` dispatches parquet (real snapshot) or CSV (fixture); `build_station_stats_csv` runs read→aggregate→write, and the output loads through the unchanged `data_loader`/`StationStats` (proven by a round-trip test). `min_sample_size` and `top_n` support the busiest-stations-first scope. NOT wired into the app (that is 23c); risk engine unchanged. Raw `*.parquet`/`data/raw/` git-ignored; README documents the download step and CC BY 4.0 attribution to Deutsche Bahn (via piebro/deutsche-bahn-data). 11 tests using a tiny fixture (no real parquet, no pyarrow); 147/147 passing.
 
 - Phase 23c: real data wired into the app with fallback. Generated `data/station_stats.csv` (top 100 busiest stations, Oct 2025 snapshot, ≥6 min threshold) via the Phase 23b pipeline from the piebro parquet (schema: station_name / delay_in_min / is_canceled; 1.99M stops → 100 stations, 4.2 KB CSV, committed). `resolve_station_stats_path(preferred, fallback)` added to `data_loader` (tested); `app.py` now prefers `data/station_stats.csv` and falls back to `data/sample_station_stats.csv` if absent — sample fallback NOT removed. Reliability board shows the active data source (real vs sample) + file freshness. Risk engine unchanged; raw parquet kept out of git. README limitations/status updated. 4 tests added; 151/151 passing. **v2.1 real-data milestone (23a–23c) complete.**
+
+- Phase 24: DEFERRED (not done) by explicit decision to ship v2.1 first; to be revisited. Construction/disruption stays a manual `no`/`yes`/`unknown` flag (no stable low-complexity free source confirmed). See `docs/13-v2.1-technical-delivery-plan.md` §4.
+- Phase 25: v2.1 release & polish. README updated (project status + roadmap reflect the shipped v2.1 milestone: CI, hardening, real historical data; Phase 24 flagged as pending). `v2.1` annotated tag created and a GitHub release published with notes. Live QA of the rendered app left as a manual step (no browser available in this environment; server confirmed reachable and deploy commit current). No code change, so no new tests; 151/151 still passing. Note: Phase 24 remains outstanding and should be picked up later.
 
 ## Post-release audit (2026-07-06)
 
