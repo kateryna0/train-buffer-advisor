@@ -28,6 +28,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 20c | Transfer time modeling (v3) | Done |
 | 20d | Downstream connection risk calculation (v3) | Done |
 | 20e | Missed-connection / next-train messaging (v3) | Done |
+| 20f | Multi-leg UI + connection-risk result card (v3) | Done |
 
 ## Log
 
@@ -65,6 +66,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 20d: `compute_connection_risk(arrival_leg, departure_leg, leg1_delay_estimate, transfer_station=None)` added to `src/connection_engine.py`. Combines the scheduled transfer buffer (`departure - arrival`), the leg-1 delay estimate (expected + p80 from 20b), and the minimum transfer time (20c) into slack = buffer − delay − minimum. Classifies Low (conservative/p80 slack ≥ 0), Medium (expected slack ≥ 0 only), High (expected slack < 0), and exposes `likely_missed` and all intermediates. No-data leg-1 estimates use 0-minute delays (neutral) with `has_data=False` so the UI can mark low confidence. Helper `_minutes_between` added. 6 tests; 113/113 passing.
 
 - Phase 20e: `build_connection_message(connection_risk, next_departure_time=None)` added to `src/recommendation.py`. Turns a 20d connection-risk dict into customer-facing text: High → explicit next-train fallback ("plan for the next departure at HH:MM" when a time is given, else "take an earlier first train"); Medium → tight, keep a fallback in mind; Low → reassuring with slack minutes. Appends `CONNECTION_NO_DATA_CAVEAT` when the leg-1 estimate had no data. 6 tests; 119/119 passing.
+
+- Phase 20f: connection mode wired into the UI. `app.py` gains a third tab ("Connection mode") with a two-leg input form (origin/transfer/final stations, per-leg departure/arrival, trip type) that builds `TripLeg`/`MultiLegTripInput`, estimates the leg-1 delay from the transfer station's stats, computes connection risk (20d), and renders a color-coded connection-risk card with metrics and the 20e message (error/warning/success by level, low-confidence caption when no data). Invalid connecting trips surface the model's ValueError. app.py stays thin (orchestration only). End-to-end test added (`tests/test_end_to_end_connection.py`): a tight transfer at München Hbf yields a correct High-risk warning with next-train fallback, and a comfortable transfer yields Low — through the full pipeline. 2 tests; 121/121 passing. **v3 connection mode (Phase 20a-20f) complete.**
 
 ## Post-release audit (2026-07-06)
 

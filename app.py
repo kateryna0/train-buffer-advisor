@@ -8,11 +8,16 @@ from datetime import datetime, time
 
 import streamlit as st
 
+from src.connection_engine import compute_connection_risk, estimate_leg_arrival_delay
 from src.data_loader import get_station_stats, load_station_stats
 from src.live_delay_client import apply_live_delay_modifier, fetch_live_delay
 from src.logging_utils import log_advice
-from src.models import ALLOWED_TRIP_TYPES, TripInput
-from src.recommendation import NO_DATA_TEXT, build_recommendation_text
+from src.models import ALLOWED_TRIP_TYPES, MultiLegTripInput, TripInput, TripLeg
+from src.recommendation import (
+    NO_DATA_TEXT,
+    build_connection_message,
+    build_recommendation_text,
+)
 from src.reliability_board import compute_reliability_rankings
 from src.risk_engine import calculate_buffer
 from src.time_utils import calculate_latest_safe_arrival, is_planned_arrival_safe
@@ -55,7 +60,9 @@ st.caption(
 
 station_stats = load_station_stats(STATION_STATS_PATH)
 
-advisor_tab, board_tab = st.tabs(["Trip advisor", "Reliability board"])
+advisor_tab, connection_tab, board_tab = st.tabs(
+    ["Trip advisor", "Connection mode", "Reliability board"]
+)
 
 # --- Trip advisor -----------------------------------------------------------
 with advisor_tab:
@@ -232,6 +239,112 @@ with advisor_tab:
                 with st.expander("Data sources"):
                     for source in result.data_sources:
                         st.caption(source)
+
+# --- Connection mode (v3) ---------------------------------------------------
+with connection_tab:
+    st.subheader("Will I make my transfer?")
+    st.caption(
+        "Estimates the risk of missing a transfer by combining the first leg's "
+        "historical arrival delay with the scheduled transfer time. Uses static "
+        "reliability data; check DB Navigator for live times."
+    )
+
+    with st.form("connection_form"):
+        st.write("**Leg 1**")
+        c1, c2 = st.columns(2)
+        with c1:
+            leg1_origin = st.text_input("Leg 1 origin", value="Berlin Hbf")
+            leg1_departure = st.time_input("Leg 1 departure", value=time(8, 0))
+        with c2:
+            leg1_destination = st.text_input(
+                "Transfer station (leg 1 destination)", value="Hamburg Hbf"
+            )
+            leg1_arrival = st.time_input("Leg 1 arrival", value=time(9, 40))
+
+        st.write("**Leg 2**")
+        c3, c4 = st.columns(2)
+        with c3:
+            leg2_destination = st.text_input(
+                "Final destination (leg 2)", value="Köln Hbf"
+            )
+            leg2_departure = st.time_input("Leg 2 departure", value=time(9, 55))
+        with c4:
+            conn_trip_type = st.selectbox(
+                "Trip type", sorted(ALLOWED_TRIP_TYPES), key="conn_trip_type"
+            )
+            leg2_arrival = st.time_input("Leg 2 arrival", value=time(11, 30))
+
+        conn_submitted = st.form_submit_button("Check connection")
+
+    if conn_submitted:
+        try:
+            leg1 = TripLeg(
+                origin_station=leg1_origin,
+                destination_station=leg1_destination,
+                planned_departure_time=leg1_departure,
+                planned_arrival_time=leg1_arrival,
+            )
+            leg2 = TripLeg(
+                origin_station=leg1_destination,
+                destination_station=leg2_destination,
+                planned_departure_time=leg2_departure,
+                planned_arrival_time=leg2_arrival,
+            )
+            trip = MultiLegTripInput(
+                legs=[leg1, leg2],
+                arrival_deadline=leg2_arrival,
+                trip_type=conn_trip_type,
+            )
+        except ValueError as exc:
+            st.error(f"Invalid connecting trip: {exc}")
+        else:
+            transfer_stats = get_station_stats(
+                leg1.destination_station, station_stats
+            )
+            leg1_delay = estimate_leg_arrival_delay(leg1, transfer_stats)
+            connection_risk = compute_connection_risk(leg1, leg2, leg1_delay)
+
+            badge = risk_badge(connection_risk["connection_risk_level"])
+            st.markdown(
+                f"<span style='background:{badge['color']};color:white;"
+                f"padding:4px 12px;border-radius:12px;font-weight:600;'>"
+                f"{badge['emoji']} Connection: {badge['label']}</span>",
+                unsafe_allow_html=True,
+            )
+
+            mcol1, mcol2 = st.columns(2)
+            with mcol1:
+                st.metric(
+                    "Scheduled transfer",
+                    f"{connection_risk['scheduled_transfer_minutes']} min",
+                )
+                st.metric(
+                    "Minimum needed",
+                    f"{connection_risk['minimum_transfer_minutes']} min",
+                )
+            with mcol2:
+                st.metric(
+                    "Expected leg-1 delay",
+                    f"{connection_risk['expected_leg1_delay_minutes']} min",
+                )
+                st.metric(
+                    "Slack (typical)",
+                    f"{connection_risk['expected_transfer_slack_minutes']} min",
+                )
+
+            message = build_connection_message(connection_risk)
+            if connection_risk["connection_risk_level"] == "High":
+                st.error(message)
+            elif connection_risk["connection_risk_level"] == "Medium":
+                st.warning(message)
+            else:
+                st.success(message)
+
+            if not connection_risk["has_data"]:
+                st.caption(
+                    "No historical delay data for the transfer station; result "
+                    "is schedule-only and low-confidence."
+                )
 
 # --- Reliability board ------------------------------------------------------
 with board_tab:
