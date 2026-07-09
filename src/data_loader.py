@@ -36,3 +36,21 @@ def get_station_stats(
     destination_station: str, stats: dict[str, StationStats]
 ) -> StationStats | None:
     return stats.get(destination_station)
+
+
+def station_names(stats: dict[str, StationStats]) -> list[str]:
+    """Sorted list of station names available in the loaded stats.
+
+    Used to populate searchable station pickers in the UI so the user chooses
+    from valid stations instead of typing exact names.
+    """
+    return sorted(stats.keys())
+
+
+def default_option_index(options: list[str], preferred: str) -> int:
+    """Index of `preferred` in `options`, or 0 if it is not present.
+
+    Lets the UI request a sensible default station without crashing when that
+    station is absent from the current dataset (e.g. sample vs real data).
+    """
+    return options.index(preferred) if preferred in options else 0

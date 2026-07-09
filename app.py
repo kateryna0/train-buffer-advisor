@@ -10,9 +10,11 @@ import streamlit as st
 
 from src.connection_engine import compute_connection_risk, estimate_leg_arrival_delay
 from src.data_loader import (
+    default_option_index,
     get_station_stats,
     load_station_stats,
     resolve_station_stats_path,
+    station_names,
 )
 from src.live_delay_client import apply_live_delay_modifier, fetch_live_delay
 from src.logging_utils import log_advice
@@ -70,6 +72,9 @@ st.caption(
 
 station_stats = load_station_stats(STATION_STATS_PATH)
 
+# Searchable station options for the pickers (type to filter, no exact spelling).
+STATION_OPTIONS = station_names(station_stats)
+
 advisor_tab, connection_tab, board_tab = st.tabs(
     ["Trip advisor", "Connection mode", "Reliability board"]
 )
@@ -79,14 +84,22 @@ with advisor_tab:
     with st.form("trip_form"):
         col1, col2 = st.columns(2)
         with col1:
-            origin_station = st.text_input("Origin station", value="Berlin Hbf")
+            origin_station = st.selectbox(
+                "Origin station",
+                STATION_OPTIONS,
+                index=default_option_index(STATION_OPTIONS, "Berlin Hauptbahnhof"),
+                help="Type to search available stations.",
+            )
             planned_arrival_time = st.time_input(
                 "Planned arrival time", value=time(9, 40)
             )
             trip_type = st.selectbox("Trip type", sorted(ALLOWED_TRIP_TYPES))
         with col2:
-            destination_station = st.text_input(
-                "Destination station", value="Hamburg Hbf"
+            destination_station = st.selectbox(
+                "Destination station",
+                STATION_OPTIONS,
+                index=default_option_index(STATION_OPTIONS, "Köln Hbf"),
+                help="Type to search available stations.",
             )
             arrival_deadline = st.time_input("Arrival deadline", value=time(10, 0))
             train_number = st.text_input(
@@ -263,19 +276,30 @@ with connection_tab:
         st.write("**Leg 1**")
         c1, c2 = st.columns(2)
         with c1:
-            leg1_origin = st.text_input("Leg 1 origin", value="Berlin Hbf")
+            leg1_origin = st.selectbox(
+                "Leg 1 origin",
+                STATION_OPTIONS,
+                index=default_option_index(STATION_OPTIONS, "Berlin Hauptbahnhof"),
+                help="Type to search available stations.",
+            )
             leg1_departure = st.time_input("Leg 1 departure", value=time(8, 0))
         with c2:
-            leg1_destination = st.text_input(
-                "Transfer station (leg 1 destination)", value="Hamburg Hbf"
+            leg1_destination = st.selectbox(
+                "Transfer station (leg 1 destination)",
+                STATION_OPTIONS,
+                index=default_option_index(STATION_OPTIONS, "Hamburg Hbf"),
+                help="Type to search available stations.",
             )
             leg1_arrival = st.time_input("Leg 1 arrival", value=time(9, 40))
 
         st.write("**Leg 2**")
         c3, c4 = st.columns(2)
         with c3:
-            leg2_destination = st.text_input(
-                "Final destination (leg 2)", value="Köln Hbf"
+            leg2_destination = st.selectbox(
+                "Final destination (leg 2)",
+                STATION_OPTIONS,
+                index=default_option_index(STATION_OPTIONS, "Köln Hbf"),
+                help="Type to search available stations.",
             )
             leg2_departure = st.time_input("Leg 2 departure", value=time(9, 55))
         with c4:
