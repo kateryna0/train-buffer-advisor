@@ -7,7 +7,12 @@ introducing a new risk model.
 Phase 20c: model the minimum realistic transfer time at a station using a
 manual lookup table (real per-station walking-distance data is out of scope
 for now — the table is explicit and testable, and easy to extend).
+
+Phase 20d: combine a leg's arrival-delay estimate with the scheduled transfer
+buffer and the minimum transfer time to classify downstream connection risk.
 """
+
+from datetime import datetime
 
 from src.models import StationStats, TripLeg
 from src.risk_engine import calculate_confidence, calculate_historical_risk
@@ -98,4 +103,71 @@ def estimate_leg_arrival_delay(
         "confidence_level": confidence_level,
         "expected_delay_minutes": round(destination_stats.avg_delay_minutes),
         "p80_delay_minutes": round(destination_stats.p80_delay_minutes),
+    }
+
+
+def _minutes_between(earlier, later) -> int:
+    """Whole minutes from `earlier` to `later` (same day; may be negative)."""
+    ref = datetime(2000, 1, 1)
+    delta = datetime.combine(ref, later) - datetime.combine(ref, earlier)
+    return int(delta.total_seconds() // 60)
+
+
+def compute_connection_risk(
+    arrival_leg: TripLeg,
+    departure_leg: TripLeg,
+    leg1_delay_estimate: dict,
+    transfer_station: str | None = None,
+) -> dict:
+    """Classify the risk of missing a transfer between two legs.
+
+    Combines three quantities at the transfer station:
+      - scheduled transfer buffer = departure_leg planned departure minus
+        arrival_leg planned arrival,
+      - the leg-1 arrival delay estimate (expected and p80), from
+        estimate_leg_arrival_delay,
+      - the minimum realistic transfer time (20c table).
+
+    Slack = scheduled_buffer - leg1_delay - minimum_transfer. Two slacks are
+    computed: an expected-case and a conservative (p80) case.
+
+    Risk levels:
+      - "Low"    : conservative slack >= 0 (holds even in a bad leg-1 delay)
+      - "Medium" : expected slack >= 0 but conservative slack < 0
+      - "High"   : expected slack < 0 (likely to miss the connection)
+
+    When the leg-1 estimate has no data, delays are 0 (neutral), so the risk
+    reflects only scheduled buffer vs minimum transfer; has_data flags this so
+    the UI can mark it low-confidence.
+    """
+    transfer_station = transfer_station or arrival_leg.destination_station
+    minimum_transfer = minimum_transfer_minutes(transfer_station)
+    scheduled_transfer = _minutes_between(
+        arrival_leg.planned_arrival_time, departure_leg.planned_departure_time
+    )
+
+    expected_delay = int(leg1_delay_estimate["expected_delay_minutes"])
+    p80_delay = int(leg1_delay_estimate["p80_delay_minutes"])
+
+    expected_slack = scheduled_transfer - expected_delay - minimum_transfer
+    conservative_slack = scheduled_transfer - p80_delay - minimum_transfer
+
+    if conservative_slack >= 0:
+        connection_risk_level = "Low"
+    elif expected_slack >= 0:
+        connection_risk_level = "Medium"
+    else:
+        connection_risk_level = "High"
+
+    return {
+        "transfer_station": transfer_station,
+        "scheduled_transfer_minutes": scheduled_transfer,
+        "minimum_transfer_minutes": minimum_transfer,
+        "expected_leg1_delay_minutes": expected_delay,
+        "p80_leg1_delay_minutes": p80_delay,
+        "expected_transfer_slack_minutes": expected_slack,
+        "conservative_transfer_slack_minutes": conservative_slack,
+        "connection_risk_level": connection_risk_level,
+        "likely_missed": expected_slack < 0,
+        "has_data": bool(leg1_delay_estimate["has_data"]),
     }

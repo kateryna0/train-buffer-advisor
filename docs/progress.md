@@ -26,6 +26,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 20a | Multi-leg trip input model (v3) | Done |
 | 20b | First-leg arrival delay estimation (v3) | Done |
 | 20c | Transfer time modeling (v3) | Done |
+| 20d | Downstream connection risk calculation (v3) | Done |
 
 ## Log
 
@@ -59,6 +60,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 20b: `src/connection_engine.py` added — `estimate_leg_arrival_delay(leg, destination_stats)` estimates a leg's arrival delay from its destination station stats, reusing the existing risk engine (`calculate_confidence`, `calculate_historical_risk`) rather than a new model. Returns risk_level, confidence_level, expected (avg) and p80 delay minutes, and `has_data`; no data / too-thin samples report 0-minute delays and `has_data=False` so downstream connection logic treats them neutrally. Static data only (no live integration yet). NOTE: the engine file was already present uncommitted from an earlier interrupted session; it matched the plan and was adopted as-is with tests added. 4 tests; 103/103 passing.
 
 - Phase 20c: transfer time modeling added to `src/connection_engine.py` — `MINIMUM_TRANSFER_MINUTES` manual per-station table (large hubs need more; extend as real data confirmed) plus `DEFAULT_MINIMUM_TRANSFER_MINUTES` fallback, and `minimum_transfer_minutes(station_name, default=...)`. This is the transfer time before any delay is applied; 20d compares it against the leg-1 delay estimate. 4 tests; 107/107 passing.
+
+- Phase 20d: `compute_connection_risk(arrival_leg, departure_leg, leg1_delay_estimate, transfer_station=None)` added to `src/connection_engine.py`. Combines the scheduled transfer buffer (`departure - arrival`), the leg-1 delay estimate (expected + p80 from 20b), and the minimum transfer time (20c) into slack = buffer − delay − minimum. Classifies Low (conservative/p80 slack ≥ 0), Medium (expected slack ≥ 0 only), High (expected slack < 0), and exposes `likely_missed` and all intermediates. No-data leg-1 estimates use 0-minute delays (neutral) with `has_data=False` so the UI can mark low confidence. Helper `_minutes_between` added. 6 tests; 113/113 passing.
 
 ## Post-release audit (2026-07-06)
 
