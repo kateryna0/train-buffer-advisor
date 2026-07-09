@@ -14,9 +14,16 @@ raising.
 import json
 import urllib.request
 
+from src.cache_utils import TimedCache
+
 # Open-Meteo: free, no API key required. https://open-meteo.com
 _OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 _REQUEST_TIMEOUT_SECONDS = 5
+
+# Weather changes slowly; cache successful current-weather reads for 10 minutes
+# so repeated submits for the same station don't re-hit the API.
+WEATHER_CACHE_TTL_SECONDS = 600
+_weather_cache = TimedCache(WEATHER_CACHE_TTL_SECONDS)
 
 # Coordinates for the sample destination stations. Kept explicit and small;
 # extend alongside data/sample_station_stats.csv.
@@ -40,7 +47,7 @@ FALLBACK_WARNING = (
 )
 
 
-def _fetch_current_weather(latitude: float, longitude: float) -> dict:
+def _fetch_current_weather_uncached(latitude: float, longitude: float) -> dict:
     """Perform the raw network call and return Open-Meteo's `current` block.
 
     Isolated so tests can monkeypatch it without touching the network.
@@ -57,6 +64,18 @@ def _fetch_current_weather(latitude: float, longitude: float) -> dict:
     with urllib.request.urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
         payload = json.loads(response.read().decode("utf-8"))
     return payload["current"]
+
+
+def _fetch_current_weather(latitude: float, longitude: float) -> dict:
+    """Cached wrapper over the raw call, keyed by coordinates.
+
+    Only successful reads are cached (a failing call raises and is not stored),
+    so the fail-closed fallback still works and a transient error can recover.
+    """
+    return _weather_cache.get_or_call(
+        (latitude, longitude),
+        lambda: _fetch_current_weather_uncached(latitude, longitude),
+    )
 
 
 def fetch_weather_signal(station_name: str, station_coordinates: dict) -> dict:

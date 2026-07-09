@@ -14,10 +14,17 @@ import re
 import urllib.parse
 import urllib.request
 
+from src.cache_utils import TimedCache
+
 # Public, unofficial DB endpoint. Terms of use must be confirmed before any
 # production use; kept behind a mockable isolation function and fail-closed.
 _DB_REST_URL = "https://v6.db.transport.rest/trips"
 _REQUEST_TIMEOUT_SECONDS = 5
+
+# Delays change faster than weather; cache successful reads for 1 minute only,
+# enough to absorb repeated submits without serving a stale live status.
+DELAY_CACHE_TTL_SECONDS = 60
+_delay_cache = TimedCache(DELAY_CACHE_TTL_SECONDS)
 
 # A DB train number is a line label like "ICE 123", "IC 2043", "RE4", "S 7".
 # Letters (1-4) optionally followed by whitespace and 1-5 digits.
@@ -31,7 +38,7 @@ def validate_train_number(train_number: str) -> bool:
     return bool(_TRAIN_NUMBER_PATTERN.match(train_number.strip()))
 
 
-def _request_train_status(train_number: str) -> dict:
+def _request_train_status_uncached(train_number: str) -> dict:
     """Raw network call returning the parsed status payload for a train.
 
     Isolated so tests can monkeypatch it. Raises on any network/parse error.
@@ -42,6 +49,18 @@ def _request_train_status(train_number: str) -> dict:
     )
     with urllib.request.urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def _request_train_status(train_number: str) -> dict:
+    """Cached wrapper over the raw call, keyed by train number.
+
+    Only successful reads are cached; a failing call raises and is not stored,
+    so fetch_live_delay's fail-closed None path still works and can recover.
+    """
+    return _delay_cache.get_or_call(
+        train_number,
+        lambda: _request_train_status_uncached(train_number),
+    )
 
 
 def fetch_live_delay(train_number: str) -> dict | None:

@@ -30,6 +30,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 20e | Missed-connection / next-train messaging (v3) | Done |
 | 20f | Multi-leg UI + connection-risk result card (v3) | Done |
 | 21 | CI + Python version pin (v2.1) | Done |
+| 22 | Cache + harden live API calls (v2.1) | Done |
 
 ## Log
 
@@ -71,6 +72,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 20f: connection mode wired into the UI. `app.py` gains a third tab ("Connection mode") with a two-leg input form (origin/transfer/final stations, per-leg departure/arrival, trip type) that builds `TripLeg`/`MultiLegTripInput`, estimates the leg-1 delay from the transfer station's stats, computes connection risk (20d), and renders a color-coded connection-risk card with metrics and the 20e message (error/warning/success by level, low-confidence caption when no data). Invalid connecting trips surface the model's ValueError. app.py stays thin (orchestration only). End-to-end test added (`tests/test_end_to_end_connection.py`): a tight transfer at München Hbf yields a correct High-risk warning with next-train fallback, and a comfortable transfer yields Low — through the full pipeline. 2 tests; 121/121 passing. **v3 connection mode (Phase 20a-20f) complete.**
 
 - Phase 21: continuous integration added (`.github/workflows/ci.yml`) — on every push/PR to main it installs `requirements.txt`, runs `pytest`, and runs an `import app` smoke check (the check that would have caught the v2.0 stale-deploy ImportError). Python pinned to 3.12 via `.python-version` (consumed by actions/setup-python; README notes to set the same version in Streamlit Cloud). CI badge added to README. 6 tests guard the config itself; 127/127 passing. First v2.1 phase, per `docs/13-v2.1-technical-delivery-plan.md`.
+
+- Phase 22: `src/cache_utils.py` added — `TimedCache` (injectable clock) caches successful producer results for a TTL and never caches exceptions. Wired into the live clients: the raw network calls were split into `_..._uncached` plus a cached front (`_fetch_current_weather` keyed by coordinates, TTL 600s; `_request_train_status` keyed by train number, TTL 60s), so repeated submits hit the API at most once per TTL. Failures are not cached, so the fail-closed fallback still works and can recover. Existing weather/delay tests unchanged (they patch the cached front); new tests patch the uncached raw fns. 9 tests added (5 cache_utils + 4 caching); 136/136 passing. `app.py` unchanged (caching lives in `src/*`).
 
 ## Post-release audit (2026-07-06)
 
