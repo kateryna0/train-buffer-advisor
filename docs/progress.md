@@ -25,6 +25,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 19 | Reliability board (v2) | Done |
 | 20a | Multi-leg trip input model (v3) | Done |
 | 20b | First-leg arrival delay estimation (v3) | Done |
+| 20c | Transfer time modeling (v3) | Done |
 
 ## Log
 
@@ -56,6 +57,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 20a: `TripLeg` and `MultiLegTripInput` added to `src/models.py` for v3 connection mode (input model only — no calculation yet). `TripLeg` holds origin/destination and planned departure/arrival times with validation; `MultiLegTripInput` requires ≥2 legs, enforces that adjacent legs connect (destination of one = origin of next), validates trip_type, and exposes `transfer_stations` and `final_destination` helpers. 7 tests added; 99/99 passing. No changes to existing models or the advisor flow.
 
 - Phase 20b: `src/connection_engine.py` added — `estimate_leg_arrival_delay(leg, destination_stats)` estimates a leg's arrival delay from its destination station stats, reusing the existing risk engine (`calculate_confidence`, `calculate_historical_risk`) rather than a new model. Returns risk_level, confidence_level, expected (avg) and p80 delay minutes, and `has_data`; no data / too-thin samples report 0-minute delays and `has_data=False` so downstream connection logic treats them neutrally. Static data only (no live integration yet). NOTE: the engine file was already present uncommitted from an earlier interrupted session; it matched the plan and was adopted as-is with tests added. 4 tests; 103/103 passing.
+
+- Phase 20c: transfer time modeling added to `src/connection_engine.py` — `MINIMUM_TRANSFER_MINUTES` manual per-station table (large hubs need more; extend as real data confirmed) plus `DEFAULT_MINIMUM_TRANSFER_MINUTES` fallback, and `minimum_transfer_minutes(station_name, default=...)`. This is the transfer time before any delay is applied; 20d compares it against the leg-1 delay estimate. 4 tests; 107/107 passing.
 
 ## Post-release audit (2026-07-06)
 

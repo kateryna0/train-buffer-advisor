@@ -3,10 +3,42 @@
 Phase 20b: estimate the arrival delay of a single leg at its destination
 station, reusing the existing historical risk engine per leg rather than
 introducing a new risk model.
+
+Phase 20c: model the minimum realistic transfer time at a station using a
+manual lookup table (real per-station walking-distance data is out of scope
+for now — the table is explicit and testable, and easy to extend).
 """
 
 from src.models import StationStats, TripLeg
 from src.risk_engine import calculate_confidence, calculate_historical_risk
+
+# Minimum realistic transfer time (minutes) needed to change trains at a
+# station, i.e. the walk + platform-change buffer before considering delays.
+# Large hubs with long platforms / underground changes need more; smaller
+# stations need less. Manual first pass — extend as real data is confirmed.
+MINIMUM_TRANSFER_MINUTES = {
+    "Berlin Hbf": 10,
+    "Hamburg Hbf": 8,
+    "München Hbf": 10,
+    "Köln Hbf": 8,
+    "Frankfurt Hbf": 12,
+    "Hannover Hbf": 7,
+}
+
+# Fallback for any station not in the table above.
+DEFAULT_MINIMUM_TRANSFER_MINUTES = 8
+
+
+def minimum_transfer_minutes(
+    station_name: str, default: int = DEFAULT_MINIMUM_TRANSFER_MINUTES
+) -> int:
+    """Minimum realistic minutes to change trains at a station.
+
+    Returns the manual table value if the station is known, otherwise the
+    provided default. This is the transfer time before any delay is applied;
+    downstream connection risk (20d) compares it against leg-1 delay.
+    """
+    return MINIMUM_TRANSFER_MINUTES.get(station_name, default)
 
 
 def estimate_leg_arrival_delay(
