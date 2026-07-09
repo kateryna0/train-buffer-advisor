@@ -32,6 +32,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 21 | CI + Python version pin (v2.1) | Done |
 | 22 | Cache + harden live API calls (v2.1) | Done |
 | 23a | Real historical data source decision (research) | Done |
+| 23b | Offline data ingestion pipeline | Done |
 
 ## Log
 
@@ -77,6 +78,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 22: `src/cache_utils.py` added — `TimedCache` (injectable clock) caches successful producer results for a TTL and never caches exceptions. Wired into the live clients: the raw network calls were split into `_..._uncached` plus a cached front (`_fetch_current_weather` keyed by coordinates, TTL 600s; `_request_train_status` keyed by train number, TTL 60s), so repeated submits hit the API at most once per TTL. Failures are not cached, so the fail-closed fallback still works and can recover. Existing weather/delay tests unchanged (they patch the cached front); new tests patch the uncached raw fns. 9 tests added (5 cache_utils + 4 caching); 136/136 passing. `app.py` unchanged (caching lives in `src/*`).
 
 - Phase 23a: research + recommendation only (no code, so no tests). `docs/14-real-historical-data-source-decision.md` evaluates 6 candidate real-world DB historical data sources against a 10-point rubric and the StationStats mapping. Recommendation: adopt piebro `deutsche-bahn-data` (Hugging Face, CC BY 4.0, per-stop delay + cancellation + EVA station id, downloadable parquet) as an offline batch input; DB Timetables API and Bahn-Vorhersage/OPUS deferred as later/fallback; gtfs.de, v6.db.transport.rest, and Statista rejected. Awaiting source approval before Phase 23b (ingestion). Sample CSV fallback to be preserved.
+
+- Phase 23b: `src/data_ingest.py` added — offline batch pipeline turning per-stop DB records into StationStats-shaped output. `aggregate_station_stats` groups by station and computes sample_size, cancellation_rate (cancelled/all stops), late_rate (share of non-cancelled stops with arrival delay >= 6 min, tunable), avg_delay_minutes, and p80_delay_minutes; cancelled stops are excluded from delay metrics. `read_stops` dispatches parquet (real snapshot) or CSV (fixture); `build_station_stats_csv` runs read→aggregate→write, and the output loads through the unchanged `data_loader`/`StationStats` (proven by a round-trip test). `min_sample_size` and `top_n` support the busiest-stations-first scope. NOT wired into the app (that is 23c); risk engine unchanged. Raw `*.parquet`/`data/raw/` git-ignored; README documents the download step and CC BY 4.0 attribution to Deutsche Bahn (via piebro/deutsche-bahn-data). 11 tests using a tiny fixture (no real parquet, no pyarrow); 147/147 passing.
 
 ## Post-release audit (2026-07-06)
 

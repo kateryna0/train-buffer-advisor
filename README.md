@@ -87,6 +87,28 @@ source .venv/bin/activate
 pytest
 ```
 
+## Real historical data (offline ingestion)
+
+The app ships with a small hand-curated `data/sample_station_stats.csv` as a fallback. A real dataset can be generated offline from the [piebro/deutsche-bahn-data](https://huggingface.co/datasets/piebro/deutsche-bahn-data) Hugging Face dataset (see [docs/14-real-historical-data-source-decision.md](docs/14-real-historical-data-source-decision.md) for the source evaluation).
+
+The ingestion is a **batch/offline step** in `src/data_ingest.py` — it is not imported by the app, so there is no runtime dependency on the dataset or a parquet engine:
+
+```python
+from src.data_ingest import build_station_stats_csv
+
+# Download a monthly parquet snapshot into data/raw/ first (kept out of git).
+build_station_stats_csv(
+    "data/raw/2025-10.parquet",     # per-stop records
+    "data/station_stats.csv",       # StationStats-shaped output
+    late_threshold_minutes=6,       # DB punctuality definition
+    top_n=100,                      # busiest stations first
+)
+```
+
+Reading the real parquet locally requires a parquet engine (e.g. `pip install pyarrow`); the test suite uses tiny CSV fixtures and needs neither. Raw `*.parquet` snapshots and `data/raw/` are git-ignored; only the small generated CSV is intended for commit.
+
+**Data attribution:** historical data is derived from Deutsche Bahn timetable data via the piebro/deutsche-bahn-data project, licensed **CC BY 4.0** — attributed to Deutsche Bahn.
+
 ## Project status
 
 **V1, v1.5, v2, and v3 are implemented and passing tests (121 tests).** See [docs/progress.md](docs/progress.md) for phase-by-phase delivery status. Completed:

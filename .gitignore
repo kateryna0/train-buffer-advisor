@@ -5,3 +5,7 @@ __pycache__/
 data/advice_log.csv
 .claude/
 .DS_Store
+
+# Raw historical data snapshots (downloaded for offline ingestion; not committed)
+*.parquet
+data/raw/
