@@ -27,6 +27,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 20b | First-leg arrival delay estimation (v3) | Done |
 | 20c | Transfer time modeling (v3) | Done |
 | 20d | Downstream connection risk calculation (v3) | Done |
+| 20e | Missed-connection / next-train messaging (v3) | Done |
 
 ## Log
 
@@ -62,6 +63,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 20c: transfer time modeling added to `src/connection_engine.py` — `MINIMUM_TRANSFER_MINUTES` manual per-station table (large hubs need more; extend as real data confirmed) plus `DEFAULT_MINIMUM_TRANSFER_MINUTES` fallback, and `minimum_transfer_minutes(station_name, default=...)`. This is the transfer time before any delay is applied; 20d compares it against the leg-1 delay estimate. 4 tests; 107/107 passing.
 
 - Phase 20d: `compute_connection_risk(arrival_leg, departure_leg, leg1_delay_estimate, transfer_station=None)` added to `src/connection_engine.py`. Combines the scheduled transfer buffer (`departure - arrival`), the leg-1 delay estimate (expected + p80 from 20b), and the minimum transfer time (20c) into slack = buffer − delay − minimum. Classifies Low (conservative/p80 slack ≥ 0), Medium (expected slack ≥ 0 only), High (expected slack < 0), and exposes `likely_missed` and all intermediates. No-data leg-1 estimates use 0-minute delays (neutral) with `has_data=False` so the UI can mark low confidence. Helper `_minutes_between` added. 6 tests; 113/113 passing.
+
+- Phase 20e: `build_connection_message(connection_risk, next_departure_time=None)` added to `src/recommendation.py`. Turns a 20d connection-risk dict into customer-facing text: High → explicit next-train fallback ("plan for the next departure at HH:MM" when a time is given, else "take an earlier first train"); Medium → tight, keep a fallback in mind; Low → reassuring with slack minutes. Appends `CONNECTION_NO_DATA_CAVEAT` when the leg-1 estimate had no data. 6 tests; 119/119 passing.
 
 ## Post-release audit (2026-07-06)
 
