@@ -89,19 +89,23 @@ pytest
 
 ## Real historical data (offline ingestion)
 
-The app ships with a small hand-curated `data/sample_station_stats.csv` as a fallback. A real dataset can be generated offline from the [piebro/deutsche-bahn-data](https://huggingface.co/datasets/piebro/deutsche-bahn-data) Hugging Face dataset (see [docs/14-real-historical-data-source-decision.md](docs/14-real-historical-data-source-decision.md) for the source evaluation).
+The app loads real aggregated statistics from `data/station_stats.csv` when present, and automatically falls back to the hand-curated `data/sample_station_stats.csv` if it is missing. The committed `data/station_stats.csv` was generated offline from the [piebro/deutsche-bahn-data](https://huggingface.co/datasets/piebro/deutsche-bahn-data) Hugging Face dataset — the top 100 busiest stations from the October 2025 snapshot (see [docs/14-real-historical-data-source-decision.md](docs/14-real-historical-data-source-decision.md) for the source evaluation). To regenerate or refresh it:
 
 The ingestion is a **batch/offline step** in `src/data_ingest.py` — it is not imported by the app, so there is no runtime dependency on the dataset or a parquet engine:
 
 ```python
 from src.data_ingest import build_station_stats_csv
 
-# Download a monthly parquet snapshot into data/raw/ first (kept out of git).
+# Download a monthly parquet snapshot into data/raw/ first (kept out of git):
+#   huggingface.co/datasets/piebro/deutsche-bahn-data/.../monthly_processed_data
 build_station_stats_csv(
-    "data/raw/2025-10.parquet",     # per-stop records
-    "data/station_stats.csv",       # StationStats-shaped output
-    late_threshold_minutes=6,       # DB punctuality definition
-    top_n=100,                      # busiest stations first
+    "data/raw/data-2025-10.parquet",  # per-stop records
+    "data/station_stats.csv",         # StationStats-shaped output
+    station_col="station_name",
+    delay_col="delay_in_min",
+    cancelled_col="is_canceled",
+    late_threshold_minutes=6,          # DB punctuality definition
+    top_n=100,                        # busiest stations first
 )
 ```
 
@@ -122,7 +126,7 @@ Reading the real parquet locally requires a parquet engine (e.g. `pip install py
 
 ## Limitations
 
-- Uses a small hand-curated sample dataset (5 stations), not real Deutsche Bahn historical statistics.
+- Ships with real aggregated Deutsche Bahn statistics for the ~100 busiest stations (one monthly snapshot); a smaller station or an older month is not covered, and unknown stations return "no data". The 5-station sample dataset remains as an automatic fallback.
 - Weather is now looked up live (Open-Meteo) for a small set of known stations; outside that set, or when the source is down, it falls back to no adjustment / a manual override.
 - The live upstream delay check depends on an unofficial public endpoint; when it is unavailable the app degrades to static-reliability behavior (fails closed, never blocks).
 - Construction/disruption remains a manual yes/no/unknown flag — no low-complexity, stable free data source was adopted (see [docs/progress.md](docs/progress.md)).

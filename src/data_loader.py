@@ -1,8 +1,20 @@
 """Station statistics loading."""
 
+import os
+
 import pandas as pd
 
 from src.models import StationStats
+
+
+def resolve_station_stats_path(preferred_path: str, fallback_path: str) -> str:
+    """Return preferred_path if it exists, else fallback_path.
+
+    Lets the app use real aggregated data (data/station_stats.csv) when present
+    while always degrading to the committed sample dataset if it is missing, so
+    the app never fails to load its station data.
+    """
+    return preferred_path if os.path.exists(preferred_path) else fallback_path
 
 
 def load_station_stats(path: str) -> dict[str, StationStats]:

@@ -9,7 +9,11 @@ from datetime import datetime, time
 import streamlit as st
 
 from src.connection_engine import compute_connection_risk, estimate_leg_arrival_delay
-from src.data_loader import get_station_stats, load_station_stats
+from src.data_loader import (
+    get_station_stats,
+    load_station_stats,
+    resolve_station_stats_path,
+)
 from src.live_delay_client import apply_live_delay_modifier, fetch_live_delay
 from src.logging_utils import log_advice
 from src.models import ALLOWED_TRIP_TYPES, MultiLegTripInput, TripInput, TripLeg
@@ -24,7 +28,13 @@ from src.time_utils import calculate_latest_safe_arrival, is_planned_arrival_saf
 from src.ui_helpers import risk_badge
 from src.weather_client import STATION_COORDINATES, get_weather_flags_with_fallback
 
-STATION_STATS_PATH = "data/sample_station_stats.csv"
+REAL_STATION_STATS_PATH = "data/station_stats.csv"
+SAMPLE_STATION_STATS_PATH = "data/sample_station_stats.csv"
+# Prefer real aggregated data; fall back to the committed sample if absent.
+STATION_STATS_PATH = resolve_station_stats_path(
+    REAL_STATION_STATS_PATH, SAMPLE_STATION_STATS_PATH
+)
+USING_REAL_DATA = STATION_STATS_PATH == REAL_STATION_STATS_PATH
 ADVICE_LOG_PATH = "data/advice_log.csv"
 
 st.set_page_config(page_title="TrainBuffer", page_icon="🚆")
@@ -372,14 +382,21 @@ with board_tab:
         else:
             st.caption("No stations in dataset.")
 
-    # Data freshness indicator: when the underlying dataset file last changed.
+    # Data source + freshness indicator.
+    if USING_REAL_DATA:
+        st.caption(
+            "Data source: real aggregated Deutsche Bahn statistics "
+            "(CC BY 4.0, via piebro/deutsche-bahn-data)."
+        )
+    else:
+        st.caption("Data source: built-in sample dataset (5 stations).")
     try:
         updated_at = datetime.fromtimestamp(
             os.path.getmtime(STATION_STATS_PATH)
         ).strftime("%Y-%m-%d %H:%M")
-        st.caption(f"Dataset last updated: {updated_at}")
+        st.caption(f"Dataset file last updated: {updated_at}")
     except OSError:
-        st.caption("Dataset last updated: unknown")
+        st.caption("Dataset file last updated: unknown")
 
     st.caption(
         "Construction/disruption remains a manual per-trip flag in the advisor: "

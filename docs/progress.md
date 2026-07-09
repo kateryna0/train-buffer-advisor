@@ -33,6 +33,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 22 | Cache + harden live API calls (v2.1) | Done |
 | 23a | Real historical data source decision (research) | Done |
 | 23b | Offline data ingestion pipeline | Done |
+| 23c | Wire real data into app with fallback | Done |
 
 ## Log
 
@@ -80,6 +81,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 23a: research + recommendation only (no code, so no tests). `docs/14-real-historical-data-source-decision.md` evaluates 6 candidate real-world DB historical data sources against a 10-point rubric and the StationStats mapping. Recommendation: adopt piebro `deutsche-bahn-data` (Hugging Face, CC BY 4.0, per-stop delay + cancellation + EVA station id, downloadable parquet) as an offline batch input; DB Timetables API and Bahn-Vorhersage/OPUS deferred as later/fallback; gtfs.de, v6.db.transport.rest, and Statista rejected. Awaiting source approval before Phase 23b (ingestion). Sample CSV fallback to be preserved.
 
 - Phase 23b: `src/data_ingest.py` added — offline batch pipeline turning per-stop DB records into StationStats-shaped output. `aggregate_station_stats` groups by station and computes sample_size, cancellation_rate (cancelled/all stops), late_rate (share of non-cancelled stops with arrival delay >= 6 min, tunable), avg_delay_minutes, and p80_delay_minutes; cancelled stops are excluded from delay metrics. `read_stops` dispatches parquet (real snapshot) or CSV (fixture); `build_station_stats_csv` runs read→aggregate→write, and the output loads through the unchanged `data_loader`/`StationStats` (proven by a round-trip test). `min_sample_size` and `top_n` support the busiest-stations-first scope. NOT wired into the app (that is 23c); risk engine unchanged. Raw `*.parquet`/`data/raw/` git-ignored; README documents the download step and CC BY 4.0 attribution to Deutsche Bahn (via piebro/deutsche-bahn-data). 11 tests using a tiny fixture (no real parquet, no pyarrow); 147/147 passing.
+
+- Phase 23c: real data wired into the app with fallback. Generated `data/station_stats.csv` (top 100 busiest stations, Oct 2025 snapshot, ≥6 min threshold) via the Phase 23b pipeline from the piebro parquet (schema: station_name / delay_in_min / is_canceled; 1.99M stops → 100 stations, 4.2 KB CSV, committed). `resolve_station_stats_path(preferred, fallback)` added to `data_loader` (tested); `app.py` now prefers `data/station_stats.csv` and falls back to `data/sample_station_stats.csv` if absent — sample fallback NOT removed. Reliability board shows the active data source (real vs sample) + file freshness. Risk engine unchanged; raw parquet kept out of git. README limitations/status updated. 4 tests added; 151/151 passing. **v2.1 real-data milestone (23a–23c) complete.**
 
 ## Post-release audit (2026-07-06)
 
