@@ -39,20 +39,25 @@ If the planned arrival is later than 09:25, the app flags the trip as risky.
 1. User enters origin, destination, planned arrival time, arrival deadline, and trip type.
 2. TrainBuffer looks up historical reliability stats for the destination station (late rate, cancellation rate, sample size).
 3. It calculates a confidence level from the sample size, a historical risk level from the late/cancellation rates, and a base buffer from that risk level.
-4. The base buffer is adjusted for trip type (airport, interview/exam, government/visa/medical, transfer) and, optionally, manual weather and construction/disruption flags.
+4. The base buffer is adjusted for trip type (airport, interview/exam, government/visa/medical, transfer), a live weather signal (with manual override fallback), a manual construction/disruption flag, and — if a train number is given — a live upstream delay check.
 5. The buffer is subtracted from the deadline to get the latest safe planned arrival, which is compared against the planned arrival to flag the trip as safe or risky.
 6. A customer-native (non-technical) recommendation is generated, along with reasons, warnings, and the confidence level.
 
 Business logic is fully separated from the UI:
 
 ```text
-app.py                 # Streamlit UI only
-src/models.py          # input/output models
-src/risk_engine.py     # risk, buffer, trip type, weather, construction calculations
-src/recommendation.py  # customer-native advice text
-src/data_loader.py     # station statistics loading
-src/time_utils.py      # deadline/time calculations
-src/logging_utils.py   # optional anonymous advice logging
+app.py                     # Streamlit UI only (Trip advisor / Connection mode / Reliability board tabs)
+src/models.py              # input/output models (incl. multi-leg TripLeg / MultiLegTripInput)
+src/risk_engine.py         # risk, buffer, trip type, weather, construction calculations
+src/recommendation.py      # customer-native advice text (incl. connection messaging)
+src/data_loader.py         # station statistics loading
+src/time_utils.py          # deadline/time calculations
+src/logging_utils.py       # optional anonymous advice logging
+src/ui_helpers.py          # pure presentation helpers (risk badge colors/icons)
+src/weather_client.py      # live weather signal (Open-Meteo) with graceful fallback
+src/live_delay_client.py   # live upstream delay check for a specific train
+src/reliability_board.py   # worst-station reliability rankings
+src/connection_engine.py   # v3 connection mode: per-leg delay, transfer time, connection risk
 ```
 
 ## Tech stack
@@ -80,30 +85,35 @@ pytest
 
 ## Project status
 
-**V1 core is implemented and passing tests.** See [docs/progress.md](docs/progress.md) for phase-by-phase delivery status. Completed:
+**V1, v1.5, v2, and v3 are implemented and passing tests (121 tests).** See [docs/progress.md](docs/progress.md) for phase-by-phase delivery status. Completed:
 
-- Domain models, risk engine, deadline logic, trip type modifiers, recommendation text
-- Sample station data layer (5 stations) and Streamlit UI
-- Privacy-safe anonymous advice logging
-- Optional manual weather and construction/disruption modifiers
-- End-to-end backend test coverage across normal, airport, interview/exam, unknown-station, and transfer scenarios
-
-Remaining: deployment to Streamlit Community Cloud and v1 release tagging.
+- **v1 core:** domain models, risk engine, deadline logic, trip type modifiers, recommendation text, sample station data layer (5 stations), Streamlit UI, privacy-safe anonymous advice logging, manual weather/construction modifiers, and end-to-end backend tests. Deployed to Streamlit Community Cloud and tagged `v1.0`.
+- **Better UI design (P1-4):** color-coded risk badge, grouped result card, "Advanced conditions" section, and a "How TrainBuffer works" sidebar.
+- **Live weather API (P1-5):** automatic weather lookup via Open-Meteo with graceful fallback to a manual override when the source is unavailable.
+- **v1.5 — live upstream delay check:** optional per-train live delay signal that increases the buffer when the train is already delayed, failing closed to v1 behavior when unavailable.
+- **v2 — reliability board:** worst-station rankings (by late rate and cancellation rate) with a data-freshness indicator.
+- **v3 — connection mode:** multi-leg trips with transfer-time modeling and a "will I make my transfer?" connection-risk assessment plus next-train fallback messaging.
 
 ## Limitations
 
 - Uses a small hand-curated sample dataset (5 stations), not real Deutsche Bahn historical statistics.
-- No live DB delay API — recommendations are based on static historical reliability, not real-time data.
-- Weather and construction/disruption signals are manual yes/no/unknown flags, not live API data.
-- Transfer trips are not fully supported — treated as a rough warning only.
-- No user accounts, notifications, or route optimization in v1.
+- Weather is now looked up live (Open-Meteo) for a small set of known stations; outside that set, or when the source is down, it falls back to no adjustment / a manual override.
+- The live upstream delay check depends on an unofficial public endpoint; when it is unavailable the app degrades to static-reliability behavior (fails closed, never blocks).
+- Construction/disruption remains a manual yes/no/unknown flag — no low-complexity, stable free data source was adopted (see [docs/progress.md](docs/progress.md)).
+- Connection mode uses a manual minimum-transfer-time table and static reliability data; it does not yet use live leg times.
+- No user accounts, notifications, route optimization, or mobile/PWA build.
 
 ## Roadmap
 
-- **P1 (near-term):** better UI design, real weather API (replacing manual flags)
-- **P2 (later):** real DB historical data aggregation, live DB delay API, real construction/disruption data, connection-mode support, mobile/PWA
+Delivered (see Project status above): better UI design, live weather API, live upstream delay check (v1.5), reliability board (v2), and connection mode (v3).
 
-See `trainbuffer_technical_delivery_plan.md` and `docs/09-roadmap-definition-of-done.md` for the full backlog.
+Remaining:
+
+- **Real DB historical data aggregation (P2-1):** replace the 5-station sample dataset with real aggregated Deutsche Bahn statistics.
+- **Real construction/disruption data (P2-3):** currently a documented deferral; kept as a manual flag until a stable, low-complexity source is confirmed.
+- **Mobile/PWA (P2-5):** out of scope; not planned.
+
+See `docs/12-v2-technical-delivery-plan.md`, `trainbuffer_technical_delivery_plan.md`, and `docs/09-roadmap-definition-of-done.md` for the full backlog.
 
 ## AI-assisted development workflow
 
