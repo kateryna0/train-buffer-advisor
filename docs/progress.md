@@ -29,6 +29,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 20d | Downstream connection risk calculation (v3) | Done |
 | 20e | Missed-connection / next-train messaging (v3) | Done |
 | 20f | Multi-leg UI + connection-risk result card (v3) | Done |
+| 21 | CI + Python version pin (v2.1) | Done |
 
 ## Log
 
@@ -68,6 +69,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 20e: `build_connection_message(connection_risk, next_departure_time=None)` added to `src/recommendation.py`. Turns a 20d connection-risk dict into customer-facing text: High → explicit next-train fallback ("plan for the next departure at HH:MM" when a time is given, else "take an earlier first train"); Medium → tight, keep a fallback in mind; Low → reassuring with slack minutes. Appends `CONNECTION_NO_DATA_CAVEAT` when the leg-1 estimate had no data. 6 tests; 119/119 passing.
 
 - Phase 20f: connection mode wired into the UI. `app.py` gains a third tab ("Connection mode") with a two-leg input form (origin/transfer/final stations, per-leg departure/arrival, trip type) that builds `TripLeg`/`MultiLegTripInput`, estimates the leg-1 delay from the transfer station's stats, computes connection risk (20d), and renders a color-coded connection-risk card with metrics and the 20e message (error/warning/success by level, low-confidence caption when no data). Invalid connecting trips surface the model's ValueError. app.py stays thin (orchestration only). End-to-end test added (`tests/test_end_to_end_connection.py`): a tight transfer at München Hbf yields a correct High-risk warning with next-train fallback, and a comfortable transfer yields Low — through the full pipeline. 2 tests; 121/121 passing. **v3 connection mode (Phase 20a-20f) complete.**
+
+- Phase 21: continuous integration added (`.github/workflows/ci.yml`) — on every push/PR to main it installs `requirements.txt`, runs `pytest`, and runs an `import app` smoke check (the check that would have caught the v2.0 stale-deploy ImportError). Python pinned to 3.12 via `.python-version` (consumed by actions/setup-python; README notes to set the same version in Streamlit Cloud). CI badge added to README. 6 tests guard the config itself; 127/127 passing. First v2.1 phase, per `docs/13-v2.1-technical-delivery-plan.md`.
 
 ## Post-release audit (2026-07-06)
 

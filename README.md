@@ -1,8 +1,12 @@
 # TrainBuffer
 
+[![CI](https://github.com/kateryna0/train-buffer-advisor/actions/workflows/ci.yml/badge.svg)](https://github.com/kateryna0/train-buffer-advisor/actions/workflows/ci.yml)
+
 **Transparent deadline-based buffer advice for important train trips in Germany.**
 
 **Live demo:** https://train-buffer-advisor.streamlit.app
+
+> Runtime: Python 3.12 (pinned in `.python-version`); set the same version in the Streamlit Cloud app's Advanced settings so local, CI, and deploy match.
 
 ## What TrainBuffer is
 
