@@ -31,6 +31,7 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 | 20f | Multi-leg UI + connection-risk result card (v3) | Done |
 | 21 | CI + Python version pin (v2.1) | Done |
 | 22 | Cache + harden live API calls (v2.1) | Done |
+| 23a | Real historical data source decision (research) | Done |
 
 ## Log
 
@@ -74,6 +75,8 @@ Tracks phase completion per `trainbuffer_technical_delivery_plan.md`.
 - Phase 21: continuous integration added (`.github/workflows/ci.yml`) — on every push/PR to main it installs `requirements.txt`, runs `pytest`, and runs an `import app` smoke check (the check that would have caught the v2.0 stale-deploy ImportError). Python pinned to 3.12 via `.python-version` (consumed by actions/setup-python; README notes to set the same version in Streamlit Cloud). CI badge added to README. 6 tests guard the config itself; 127/127 passing. First v2.1 phase, per `docs/13-v2.1-technical-delivery-plan.md`.
 
 - Phase 22: `src/cache_utils.py` added — `TimedCache` (injectable clock) caches successful producer results for a TTL and never caches exceptions. Wired into the live clients: the raw network calls were split into `_..._uncached` plus a cached front (`_fetch_current_weather` keyed by coordinates, TTL 600s; `_request_train_status` keyed by train number, TTL 60s), so repeated submits hit the API at most once per TTL. Failures are not cached, so the fail-closed fallback still works and can recover. Existing weather/delay tests unchanged (they patch the cached front); new tests patch the uncached raw fns. 9 tests added (5 cache_utils + 4 caching); 136/136 passing. `app.py` unchanged (caching lives in `src/*`).
+
+- Phase 23a: research + recommendation only (no code, so no tests). `docs/14-real-historical-data-source-decision.md` evaluates 6 candidate real-world DB historical data sources against a 10-point rubric and the StationStats mapping. Recommendation: adopt piebro `deutsche-bahn-data` (Hugging Face, CC BY 4.0, per-stop delay + cancellation + EVA station id, downloadable parquet) as an offline batch input; DB Timetables API and Bahn-Vorhersage/OPUS deferred as later/fallback; gtfs.de, v6.db.transport.rest, and Statista rejected. Awaiting source approval before Phase 23b (ingestion). Sample CSV fallback to be preserved.
 
 ## Post-release audit (2026-07-06)
 
