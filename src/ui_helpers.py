@@ -32,3 +32,32 @@ def risk_badge(risk_level: str) -> dict:
         raising, so the UI never crashes on an unexpected value.
     """
     return _RISK_BADGES.get(risk_level, _UNKNOWN_BADGE)
+
+
+def data_source_notes(using_real_data: bool) -> list[str]:
+    """Return short markdown bullets describing what the recommendation uses.
+
+    Presentation-only transparency copy for the "What this uses" info box. The
+    historical-reliability line reflects whether the real dataset or the sample
+    fallback is currently loaded.
+    """
+    if using_real_data:
+        reliability = (
+            "**Historical reliability:** real aggregated Deutsche Bahn statistics "
+            "(piebro/deutsche-bahn-data, CC BY 4.0)."
+        )
+    else:
+        reliability = (
+            "**Historical reliability:** built-in sample dataset (5 stations) — the "
+            "real Deutsche Bahn statistics (piebro/deutsche-bahn-data, CC BY 4.0) "
+            "are not currently loaded."
+        )
+    return [
+        reliability,
+        "**Weather:** Open-Meteo live lookup, with fallback to no adjustment / "
+        "manual override if unavailable.",
+        "**Live delay:** optional train-number check via db.transport.rest, "
+        "fail-closed if unavailable.",
+        "**Construction/disruption:** manual prototype flag only — not an "
+        "automatic live source yet.",
+    ]

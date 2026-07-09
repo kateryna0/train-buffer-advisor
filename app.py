@@ -4,7 +4,7 @@ Presentation and orchestration only. All calculations live in src/*.
 """
 
 import os
-from datetime import datetime, time
+from datetime import date, datetime, time
 
 import streamlit as st
 
@@ -27,7 +27,7 @@ from src.recommendation import (
 from src.reliability_board import compute_reliability_rankings
 from src.risk_engine import calculate_buffer
 from src.time_utils import calculate_latest_safe_arrival, is_planned_arrival_safe
-from src.ui_helpers import risk_badge
+from src.ui_helpers import data_source_notes, risk_badge
 from src.weather_client import STATION_COORDINATES, get_weather_flags_with_fallback
 
 REAL_STATION_STATS_PATH = "data/station_stats.csv"
@@ -70,6 +70,10 @@ st.caption(
     "It does not predict exact train delays."
 )
 
+with st.expander("What this uses — data sources & limitations"):
+    for note in data_source_notes(USING_REAL_DATA):
+        st.markdown(f"- {note}")
+
 station_stats = load_station_stats(STATION_STATS_PATH)
 
 # Searchable station options for the pickers (type to filter, no exact spelling).
@@ -82,6 +86,12 @@ advisor_tab, connection_tab, board_tab = st.tabs(
 # --- Trip advisor -----------------------------------------------------------
 with advisor_tab:
     with st.form("trip_form"):
+        travel_date = st.date_input("Travel date", value=date.today())
+        st.caption(
+            "The travel date is part of your trip context. Weather and live "
+            "delay checks reflect current conditions, so they are most accurate "
+            "for trips on or near today."
+        )
         col1, col2 = st.columns(2)
         with col1:
             origin_station = st.selectbox(
@@ -216,6 +226,10 @@ with advisor_tab:
                 badge = risk_badge(result.risk_level)
 
                 st.subheader("Result")
+                st.caption(
+                    f"Trip: {travel_date.strftime('%a %d %b %Y')}, "
+                    f"arrive by {arrival_deadline.strftime('%H:%M')}"
+                )
                 st.markdown(
                     f"<span style='background:{badge['color']};color:white;"
                     f"padding:4px 12px;border-radius:12px;font-weight:600;'>"
